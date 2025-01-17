@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-blue-50 min-h-screen p-4 md:p-8 font-serif">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <!-- Header Section -->
+        <div class="bg-blue-500 bg-opacity-10 border-b border-blue-100">
+            <!-- Book Title / Dropdown Trigger -->
+            <button id="bookTitleBtn" class="w-full text-left px-6 py-4 hover:bg-blue-500 hover:bg-opacity-5 transition-colors group">
+                <h1 id="currentBookTitle" class="text-2xl font-medium text-blue-900 group-hover:text-blue-700">
+                    Select a Book...
+                </h1>
+                <p class="text-blue-600 text-sm mt-1">Click to change book</p>
+            </button>
+
+            <!-- Book Selection Dropdown -->
+            <div id="bookDropdown" class="hidden absolute z-50 w-full max-w-4xl bg-white border border-blue-100 rounded-b-xl shadow-lg">
+                <div id="bookList" class="max-h-64 overflow-y-auto divide-y divide-blue-50">
+                    <!-- Books will be inserted here -->
+                </div>
+                <button id="importButton" class="w-full px-6 py-3 text-left text-blue-600 hover:bg-blue-50 border-t border-blue-100">
+                    + Import New Book
+                </button>
+            </div>
+
+            <!-- TOC Menu -->
+            <select id="tocSelect" class="w-full px-6 py-3 bg-transparent border-t border-blue-100 text-blue-800 focus:outline-none focus:bg-blue-500 focus:bg-opacity-5">
+                <option value="">Table of Contents...</option>
+            </select>
+        </div>
+
+        <!-- Content Area -->
+        <div id="contentWrapper" class="h-[75vh] overflow-y-auto bg-white px-8">
+            <div id="bookContent" class="max-w-3xl mx-auto py-8 prose prose-blue"></div>
+        </div>
+
+        <!-- Navigation Footer -->
+        <div class="bg-blue-500 bg-opacity-10 border-t border-blue-100 p-4">
+            <div class="flex items-center justify-between max-w-3xl mx-auto">
+                <button id="prevButton" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    Previous
+                </button>
+                <div id="pageIndicator" class="text-blue-900">Page 0 of 0</div>
+                <button id="nextButton" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    Next
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="importDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-96 overflow-hidden">
+            <div class="px-6 py-4 bg-blue-500 bg-opacity-10 border-b border-blue-100">
+                <h2 class="text-xl font-medium text-blue-900">Import Book</h2>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label for="bookName" class="block text-sm font-medium text-blue-900 mb-1">Book Name</label>
+                    <input type="text" id="bookName" placeholder="Enter book name..." 
+                           class="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-blue-900 mb-1">Book File</label>
+                    <input type="file" id="fileInput" accept=".html" 
+                           class="w-full text-sm text-blue-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button id="cancelImport" class="px-4 py-2 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button id="confirmImport" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                        Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BookReader {
+            constructor() {
+                this.currentBook = null;
+                this.currentPage = 0;
+                this.pages = [];
+                this.tocItems = [];
+                this.setupEventListeners();
+                this.loadBookList();
+            }
+
+            setupEventListeners() {
+                // Book title dropdown
+                document.getElementById('bookTitleBtn').addEventListener('click', () => {
+                    const dropdown = document.getElementById('bookDropdown');
+                    dropdown.classList.toggle('hidden');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#bookTitleBtn') && !e.target.closest('#bookDropdown')) {
+                        document.getElementById('bookDropdown').classList.add('hidden');
+                    }
+                });
+
+                // Navigation
+                document.getElementById('prevButton').addEventListener('click', () => this.prevPage());
+                document.getElementById('nextButton').addEventListener('click', () => this.nextPage());
+                document.getElementById('tocSelect').addEventListener('change', (e) => this.goToPage(parseInt(e.target.value)));
+
+                // Import handlers
+                document.getElementById('importButton').addEventListener('click', () => {
+                    document.getElementById('importDialog').classList.remove('hidden');
+                    document.getElementById('bookDropdown').classList.add('hidden');
+                });
+
+                document.getElementById('cancelImport').addEventListener('click', () => {
+                    document.getElementById('importDialog').classList.add('hidden');
+                });
+
+                document.getElementById('confirmImport').addEventListener('click', () => this.handleImport());
+                document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
+            }
+
+            loadBookList() {
+                const bookList = document.getElementById('bookList');
+                bookList.innerHTML = '<div class="px-6 py-3 text-blue-400 italic">No books available</div>';
+                
+                const books = this.getStoredBooks();
+                if (Object.keys(books).length > 0) {
+                    bookList.innerHTML = '';
+                    for (const bookName of Object.keys(books)) {
+                        const bookItem = document.createElement('button');
+                        bookItem.className = 'w-full px-6 py-3 text-left hover:bg-blue-50 text-blue-900';
+                        bookItem.textContent = bookName;
+                        bookItem.addEventListener('click', () => {
+                            this.loadBook(bookName);
+                            document.getElementById('bookDropdown').classList.add('hidden');
+                        });
+                        bookList.appendChild(bookItem);
+                    }
+                }
+            }
+
+            getStoredBooks() {
+                return JSON.parse(localStorage.getItem('books') || '{}');
+            }
+
+            async handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                try {
+                    const content = await file.text();
+                    this.tempBookContent = content;
+                } catch (error) {
+                    alert('Error reading file: ' + error.message);
+                }
+            }
+
+            handleImport() {
+                const bookName = document.getElementById('bookName').value.trim();
+                if (!bookName) {
+                    alert('Please enter a book name');
+                    return;
+                }
+
+                if (!this.tempBookContent) {
+                    alert('Please select a file first');
+                    return;
+                }
+
+                try {
+                    const books = this.getStoredBooks();
+                    books[bookName] = this.tempBookContent;
+                    localStorage.setItem('books', JSON.stringify(books));
+                    
+                    this.loadBookList();
+                    document.getElementById('importDialog').classList.add('hidden');
+                    document.getElementById('bookName').value = '';
+                    document.getElementById('fileInput').value = '';
+                    this.tempBookContent = null;
+                    
+                    // Load the newly imported book
+                    this.loadBook(bookName);
+                } catch (error) {
+                    alert('Error importing book: ' + error.message);
+                }
+            }
+
+            loadBook(bookName) {
+                if (!bookName) return;
+                
+                const books = this.getStoredBooks();
+                const content = books[bookName];
+                if (!content) {
+                    alert('Book not found');
+                    return;
+                }
+
+                this.currentBook = bookName;
+                document.getElementById('currentBookTitle').textContent = bookName;
+                this.parseBook(content);
+                this.currentPage = 0;
+                this.updateDisplay();
+            }
+
+            parseBook(content) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(content, 'text/html');
+                
+                const chapters = doc.querySelectorAll('.chapter-loaded');
+                this.pages = [];
+                this.tocItems = [['Cover', 0]];
+
+                chapters.forEach((chapter, index) => {
+                    const titleElem = chapter.querySelector('h1, h2, h3');
+                    if (titleElem) {
+                        const title = titleElem.textContent.trim();
+                        this.tocItems.push([title, this.pages.length]);
+                    }
+
+                    // Clean up the content
+                    const cleanContent = this.cleanContent(chapter);
+                    this.pages.push(cleanContent);
+                });
+
+                this.updateTOC();
+            }
+
+            cleanContent(element) {
+                // Remove unwanted attributes and clean up the HTML
+                const clone = element.cloneNode(true);
+                const cleanup = (node) => {
+                    if (node.nodeType === 1) { // Element node
+                        // Remove style attributes
+                        node.removeAttribute('style');
+                        node.removeAttribute('class');
+                        // Remove data attributes
+                        [...node.attributes].forEach(attr => {
+                            if (attr.name.startsWith('data-')) {
+                                node.removeAttribute(attr.name);
+                            }
+                        });
+                        // Recursively clean child nodes
+                        node.childNodes.forEach(cleanup);
+                    }
+                };
+                cleanup(clone);
+                return clone.innerHTML;
+            }
+
+            updateTOC() {
+                const tocSelect = document.getElementById('tocSelect');
+                tocSelect.innerHTML = '';
+                
+                this.tocItems.forEach(([title, pageNum]) => {
+                    const option = document.createElement('option');
+                    option.value = pageNum;
+                    option.textContent = title;
+                    tocSelect.appendChild(option);
+                });
+            }
+
+            prevPage() {
+                if (this.currentPage > 0) {
+                    this.currentPage--;
+                    this.updateDisplay();
+                }
+            }
+
+            nextPage() {
+                if (this.currentPage < this.pages.length - 1) {
+                    this.currentPage++;
+                    this.updateDisplay();
+                }
+            }
+
+            goToPage(pageNum) {
+                if (pageNum >= 0 && pageNum < this.pages.length) {
+                    this.currentPage = pageNum;
+                    this.updateDisplay();
+                }
+            }
+
+            updateDisplay() {
+                if (!this.pages.length) {
+                    document.getElementById('bookContent').innerHTML = '<div class="text-center text-blue-400 italic">No book selected</div>';
+                    return;
+                }
+
+                document.getElementById('bookContent').innerHTML = this.pages[this.currentPage];
+                document.getElementById('pageIndicator').textContent = 
+                    `Page ${this.currentPage + 1} of ${this.pages.length}`;
+                
+                document.getElementById('prevButton').disabled = (this.currentPage === 0);
+                document.getElementById('nextButton').disabled = (this.currentPage === this.pages.length - 1);
+                
+                document.getElementById('tocSelect').value = this.currentPage;
+            }
+        }
+
+        // Initialize the book reader when the page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            window.bookReader = new BookReader();
+        });
+    </script>
+</body>
+</html>
