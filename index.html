@@ -85,8 +85,86 @@
     </div>
 
     <script>
+        class StyleManager {
+            constructor() {
+                this.styleMap = new Map();
+                this.styleCounter = 0;
+                this.styleSheet = null;
+                this.init();
+            }
+
+            init() {
+                // Create a new stylesheet
+                const style = document.createElement('style');
+                document.head.appendChild(style);
+                this.styleSheet = style.sheet;
+            }
+
+            generateClassName() {
+                return `dynamic-style-${this.styleCounter++}`;
+            }
+
+            hashStyle(style) {
+                return style.split(';').filter(s => s.trim()).sort().join(';');
+            }
+
+            createClass(style) {
+                if (!style) return '';
+                
+                const styleHash = this.hashStyle(style);
+                
+                if (this.styleMap.has(styleHash)) {
+                    return this.styleMap.get(styleHash);
+                }
+
+                const className = this.generateClassName();
+                const cssRule = `.${className} { ${style} }`;
+                
+                this.styleSheet.insertRule(cssRule, this.styleSheet.cssRules.length);
+                this.styleMap.set(styleHash, className);
+                
+                return className;
+            }
+
+            // Export styles for storage
+            exportStyles() {
+                const styles = {};
+                this.styleMap.forEach((className, styleHash) => {
+                    styles[className] = styleHash;
+                });
+                return {
+                    styles,
+                    counter: this.styleCounter
+                };
+            }
+
+            // Import styles from storage
+            importStyles(styleData) {
+                if (!styleData) return;
+                
+                this.styleCounter = styleData.counter;
+                Object.entries(styleData.styles).forEach(([className, styleHash]) => {
+                    if (!this.styleMap.has(styleHash)) {
+                        const cssRule = `.${className} { ${styleHash} }`;
+                        this.styleSheet.insertRule(cssRule, this.styleSheet.cssRules.length);
+                        this.styleMap.set(styleHash, className);
+                    }
+                });
+            }
+
+            // Clear all styles
+            clear() {
+                while (this.styleSheet.cssRules.length > 0) {
+                    this.styleSheet.deleteRule(0);
+                }
+                this.styleMap.clear();
+                this.styleCounter = 0;
+            }
+        }
+
         class BookReader {
             constructor() {
+                this.styleManager = new StyleManager();
                 this.currentBook = null;
                 this.currentPage = 0;
                 this.pages = [];
@@ -166,19 +244,22 @@
 
             handleImport() {
                 const bookName = document.getElementById('bookName').value.trim();
-                if (!bookName) {
-                    alert('Please enter a book name');
-                    return;
-                }
-
-                if (!this.tempBookContent) {
-                    alert('Please select a file first');
+                if (!bookName || !this.tempBookContent) {
+                    alert('Please enter a book name and select a file');
                     return;
                 }
 
                 try {
+                    // Process the content and collect optimized data
+                    const { html: optimizedHtml, styles } = this.processBookContent(this.tempBookContent);
+                    
+                    // Store both HTML and styles
                     const books = this.getStoredBooks();
-                    books[bookName] = this.tempBookContent;
+                    books[bookName] = {
+                        html: optimizedHtml,
+                        styles: styles
+                    };
+                    
                     localStorage.setItem('books', JSON.stringify(books));
                     
                     this.loadBookList();
@@ -194,24 +275,126 @@
                 }
             }
 
+            processBookContent(content) {
+                // Clear existing styles
+                this.styleManager.clear();
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(content, 'text/html');
+                
+                const chapters = doc.querySelectorAll('.chapter-loaded');
+                const processedPages = [];
+                const tocItems = [['Cover', 0]];
+
+                chapters.forEach((chapter, index) => {
+                    const titleElem = chapter.querySelector('h1, h2, h3');
+                    if (titleElem) {
+                        const title = titleElem.textContent.trim();
+                        tocItems.push([title, processedPages.length]);
+                    }
+
+                    const chapterDiv = document.createElement('div');
+                    chapterDiv.className = 'chapter-loaded max-w-3xl mx-auto px-8';
+                    chapterDiv.innerHTML = this.cleanContent(chapter);
+                    processedPages.push(chapterDiv.outerHTML);
+                });
+
+                return {
+                    html: {
+                        pages: processedPages,
+                        toc: tocItems
+                    },
+                    styles: this.styleManager.exportStyles()
+                };
+            }
+
             loadBook(bookName) {
                 if (!bookName) return;
                 
                 const books = this.getStoredBooks();
-                const content = books[bookName];
-                if (!content) {
+                const bookData = books[bookName];
+                if (!bookData) {
                     alert('Book not found');
                     return;
                 }
 
+                // Clear existing styles and import new ones
+                this.styleManager.clear();
+                this.styleManager.importStyles(bookData.styles);
+
                 this.currentBook = bookName;
                 document.getElementById('currentBookTitle').textContent = bookName;
-                this.parseBook(content);
+                
+                // Load the optimized content
+                this.pages = bookData.html.pages;
+                this.tocItems = bookData.html.toc;
+                
                 this.currentPage = 0;
+                this.updateTOC();
                 this.updateDisplay();
             }
 
+            cleanContent(element) {
+                // Clone the element to avoid modifying the original
+                const clone = element.cloneNode(true);
+                
+                const cleanup = (node) => {
+                    if (node.nodeType === 1) { // Element node
+                        // Remove event handlers and data attributes
+                        const attributesToRemove = [
+                            'data-originalfontfamily', 
+                            'data-originalfontsize', 
+                            'data-originalcolor', 
+                            'data-originalbg',
+                            'onload',
+                            'onerror'
+                        ];
+                        
+                        attributesToRemove.forEach(attr => {
+                            if (node.hasAttribute(attr)) {
+                                node.removeAttribute(attr);
+                            }
+                        });
+
+                        // Handle inline styles
+                        if (node.hasAttribute('style')) {
+                            let style = node.getAttribute('style');
+                            
+                            // Replace specific background color
+                            if (style.includes('background-color: rgb(249, 248, 246)')) {
+                                style = style.replace(
+                                    'background-color: rgb(249, 248, 246)',
+                                    'background-color: white'
+                                );
+                            }
+
+                            // Create and apply CSS class
+                            const className = this.styleManager.createClass(style);
+                            if (className) {
+                                node.classList.add(className);
+                                node.removeAttribute('style');
+                            }
+                        }
+
+                        // Special handling for images
+                        if (node.tagName === 'IMG') {
+                            node.removeAttribute('onload');
+                            node.removeAttribute('onerror');
+                        }
+                        
+                        // Recursively clean child nodes
+                        node.childNodes.forEach(cleanup);
+                    }
+                };
+                
+                cleanup(clone);
+                return clone.innerHTML;
+            }
+
             parseBook(content) {
+                // Clear existing dynamic styles when loading a new book
+                this.styleManager = new StyleManager();
+                
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(content, 'text/html');
                 
