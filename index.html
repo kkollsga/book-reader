@@ -6,47 +6,49 @@
     <title>Book Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-blue-50 min-h-screen p-4 md:p-8 font-serif">
+<body class="bg-gray-50 min-h-screen p-4 md:p-8">
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <!-- Header Section -->
-        <div class="bg-blue-500 bg-opacity-10 border-b border-blue-100">
+        <div class="bg-gray-50 border-b">
             <!-- Book Title / Dropdown Trigger -->
-            <button id="bookTitleBtn" class="w-full text-left px-6 py-4 hover:bg-blue-500 hover:bg-opacity-5 transition-colors group">
-                <h1 id="currentBookTitle" class="text-2xl font-medium text-blue-900 group-hover:text-blue-700">
-                    Select a Book...
-                </h1>
-                <p class="text-blue-600 text-sm mt-1">Click to change book</p>
+            <button id="bookTitleBtn" class="w-full text-left px-6 py-4 hover:bg-gray-100 transition-colors">
+                <h1 id="currentBookTitle" class="text-2xl">Select a Book...</h1>
+                <p class="text-gray-600 text-sm mt-1">Click to change book</p>
             </button>
 
             <!-- Book Selection Dropdown -->
-            <div id="bookDropdown" class="hidden absolute z-50 w-full max-w-4xl bg-white border border-blue-100 rounded-b-xl shadow-lg">
-                <div id="bookList" class="max-h-64 overflow-y-auto divide-y divide-blue-50">
+            <div id="bookDropdown" class="hidden absolute z-50 w-full max-w-4xl bg-white border rounded-b-xl shadow-lg">
+                <div id="bookList" class="max-h-64 overflow-y-auto divide-y">
                     <!-- Books will be inserted here -->
                 </div>
-                <button id="importButton" class="w-full px-6 py-3 text-left text-blue-600 hover:bg-blue-50 border-t border-blue-100">
+                <button id="importButton" class="w-full px-6 py-3 text-left text-gray-600 hover:bg-gray-50 border-t">
                     + Import New Book
                 </button>
             </div>
 
             <!-- TOC Menu -->
-            <select id="tocSelect" class="w-full px-6 py-3 bg-transparent border-t border-blue-100 text-blue-800 focus:outline-none focus:bg-blue-500 focus:bg-opacity-5">
+            <select id="tocSelect" class="w-full px-6 py-3 bg-transparent border-t focus:outline-none focus:bg-gray-100">
                 <option value="">Table of Contents...</option>
             </select>
         </div>
 
         <!-- Content Area -->
-        <div id="contentWrapper" class="h-[75vh] overflow-y-auto bg-white px-8">
-            <div id="bookContent" class="max-w-3xl mx-auto py-8 prose prose-blue"></div>
+        <div id="contentWrapper" class="h-[75vh] overflow-y-auto bg-white">
+            <div id="bookContent" class="py-8">
+                <div class="chapter-loaded max-w-3xl mx-auto px-8">
+                    <!-- Content will be inserted here -->
+                </div>
+            </div>
         </div>
 
         <!-- Navigation Footer -->
-        <div class="bg-blue-500 bg-opacity-10 border-t border-blue-100 p-4">
+        <div class="bg-gray-50 border-t p-4">
             <div class="flex items-center justify-between max-w-3xl mx-auto">
-                <button id="prevButton" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <button id="prevButton" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     Previous
                 </button>
-                <div id="pageIndicator" class="text-blue-900">Page 0 of 0</div>
-                <button id="nextButton" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <div id="pageIndicator" class="text-gray-600">Page 0 of 0</div>
+                <button id="nextButton" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     Next
                 </button>
             </div>
@@ -56,25 +58,25 @@
     <!-- Import Modal -->
     <div id="importDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-xl w-96 overflow-hidden">
-            <div class="px-6 py-4 bg-blue-500 bg-opacity-10 border-b border-blue-100">
-                <h2 class="text-xl font-medium text-blue-900">Import Book</h2>
+            <div class="px-6 py-4 bg-gray-50 border-b">
+                <h2 class="text-xl">Import Book</h2>
             </div>
             <div class="p-6">
                 <div class="mb-4">
-                    <label for="bookName" class="block text-sm font-medium text-blue-900 mb-1">Book Name</label>
+                    <label for="bookName" class="block text-sm mb-1">Book Name</label>
                     <input type="text" id="bookName" placeholder="Enter book name..." 
-                           class="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                           class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-300">
                 </div>
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-blue-900 mb-1">Book File</label>
+                    <label class="block text-sm mb-1">Book File</label>
                     <input type="file" id="fileInput" accept=".html" 
-                           class="w-full text-sm text-blue-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                           class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-50 hover:file:bg-gray-100">
                 </div>
                 <div class="flex justify-end gap-3">
-                    <button id="cancelImport" class="px-4 py-2 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors">
+                    <button id="cancelImport" class="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
                         Cancel
                     </button>
-                    <button id="confirmImport" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    <button id="confirmImport" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
                         Import
                     </button>
                 </div>
@@ -128,14 +130,14 @@
 
             loadBookList() {
                 const bookList = document.getElementById('bookList');
-                bookList.innerHTML = '<div class="px-6 py-3 text-blue-400 italic">No books available</div>';
+                bookList.innerHTML = '<div class="px-6 py-3 text-gray-400 italic">No books available</div>';
                 
                 const books = this.getStoredBooks();
                 if (Object.keys(books).length > 0) {
                     bookList.innerHTML = '';
                     for (const bookName of Object.keys(books)) {
                         const bookItem = document.createElement('button');
-                        bookItem.className = 'w-full px-6 py-3 text-left hover:bg-blue-50 text-blue-900';
+                        bookItem.className = 'w-full px-6 py-3 text-left hover:bg-gray-50 text-gray-900';
                         bookItem.textContent = bookName;
                         bookItem.addEventListener('click', () => {
                             this.loadBook(bookName);
@@ -224,39 +226,76 @@
                         this.tocItems.push([title, this.pages.length]);
                     }
 
-                    // Clean up the content
-                    const cleanContent = this.cleanContent(chapter);
-                    this.pages.push(cleanContent);
+                    // Preserve the chapter's HTML structure
+                    const chapterDiv = document.createElement('div');
+                    chapterDiv.className = 'chapter-loaded max-w-3xl mx-auto px-8';
+                    chapterDiv.innerHTML = this.cleanContent(chapter);
+                    this.pages.push(chapterDiv.outerHTML);
                 });
 
                 this.updateTOC();
             }
 
             cleanContent(element) {
-                // Remove unwanted attributes and clean up the HTML
+                // Clone the element to avoid modifying the original
                 const clone = element.cloneNode(true);
+                
                 const cleanup = (node) => {
                     if (node.nodeType === 1) { // Element node
-                        // Remove style attributes
-                        node.removeAttribute('style');
-                        node.removeAttribute('class');
-                        // Remove data attributes
-                        [...node.attributes].forEach(attr => {
-                            if (attr.name.startsWith('data-')) {
-                                node.removeAttribute(attr.name);
+                        // Remove event handlers and data attributes
+                        const attributesToRemove = [
+                            'data-originalfontfamily', 
+                            'data-originalfontsize', 
+                            'data-originalcolor', 
+                            'data-originalbg',
+                            'onload',
+                            'onerror'
+                        ];
+                        
+                        attributesToRemove.forEach(attr => {
+                            if (node.hasAttribute(attr)) {
+                                node.removeAttribute(attr);
                             }
                         });
+
+                        // Special handling for images
+                        if (node.tagName === 'IMG') {
+                            node.removeAttribute('onload');
+                            node.removeAttribute('onerror');
+                        }
+
+                        // Handle background color replacement
+                        if (node.hasAttribute('style')) {
+                            const style = node.getAttribute('style');
+                            if (style.includes('background-color: rgb(249, 248, 246)')) {
+                                const newStyle = style.replace(
+                                    'background-color: rgb(249, 248, 246)',
+                                    'background-color: white'
+                                );
+                                node.setAttribute('style', newStyle);
+                            }
+                        }
+                        
+                        // Also handle bgcolor attribute if present
+                        if (node.hasAttribute('bgcolor')) {
+                            const bgcolor = node.getAttribute('bgcolor');
+                            if (bgcolor === 'rgb(249, 248, 246)' || bgcolor === '#F9F8F6') {
+                                node.setAttribute('bgcolor', 'white');
+                            }
+                        }
+                        
                         // Recursively clean child nodes
                         node.childNodes.forEach(cleanup);
                     }
                 };
+                
                 cleanup(clone);
                 return clone.innerHTML;
             }
 
             updateTOC() {
                 const tocSelect = document.getElementById('tocSelect');
-                tocSelect.innerHTML = '';
+                tocSelect.innerHTML = '<option value="">Table of Contents...</option>';
                 
                 this.tocItems.forEach(([title, pageNum]) => {
                     const option = document.createElement('option');
@@ -289,11 +328,15 @@
 
             updateDisplay() {
                 if (!this.pages.length) {
-                    document.getElementById('bookContent').innerHTML = '<div class="text-center text-blue-400 italic">No book selected</div>';
+                    document.getElementById('bookContent').innerHTML = 
+                        '<div class="chapter-loaded max-w-3xl mx-auto px-8 text-center text-gray-400 italic">No book selected</div>';
                     return;
                 }
 
+                // Insert the content directly
                 document.getElementById('bookContent').innerHTML = this.pages[this.currentPage];
+                
+                // Update navigation elements
                 document.getElementById('pageIndicator').textContent = 
                     `Page ${this.currentPage + 1} of ${this.pages.length}`;
                 
