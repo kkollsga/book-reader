@@ -10,21 +10,11 @@
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <!-- Header Section -->
         <div class="bg-gray-50 border-b">
-            <!-- Book Title / Dropdown Trigger -->
+            <!-- Book Title / Import Trigger -->
             <button id="bookTitleBtn" class="w-full text-left px-6 py-4 hover:bg-gray-100 transition-colors">
-                <h1 id="currentBookTitle" class="text-2xl">Select a Book...</h1>
-                <p class="text-gray-600 text-sm mt-1">Click to change book</p>
+                <h1 id="currentBookTitle" class="text-2xl">Click to Import Book</h1>
+                <p class="text-gray-600 text-sm mt-1">Currently viewing: <span id="bookStatus">No book loaded</span></p>
             </button>
-
-            <!-- Book Selection Dropdown -->
-            <div id="bookDropdown" class="hidden absolute z-50 w-full max-w-4xl bg-white border rounded-b-xl shadow-lg">
-                <div id="bookList" class="max-h-64 overflow-y-auto divide-y">
-                    <!-- Books will be inserted here -->
-                </div>
-                <button id="importButton" class="w-full px-6 py-3 text-left text-gray-600 hover:bg-gray-50 border-t">
-                    + Import New Book
-                </button>
-            </div>
 
             <!-- TOC Menu -->
             <select id="tocSelect" class="w-full px-6 py-3 bg-transparent border-t focus:outline-none focus:bg-gray-100">
@@ -162,6 +152,19 @@
             }
         }
 
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                const later = () => {
+                    clearTimeout(timeout);
+                    func.apply(context, args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
         class BookReader {
             constructor() {
                 this.styleManager = new StyleManager();
@@ -169,22 +172,25 @@
                 this.currentPage = 0;
                 this.pages = [];
                 this.tocItems = [];
+                
+                // Create the debounced save state function
+                this.saveState = debounce(function() {
+                    const state = {
+                        currentPage: this.currentPage,
+                        scrollPosition: this.getCurrentScroll(),
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem('bookState', JSON.stringify(state));
+                }.bind(this), 300); // Bind this context
+
                 this.setupEventListeners();
-                this.loadBookList();
+                this.restoreState();
             }
 
             setupEventListeners() {
-                // Book title dropdown
+                // Simplified title button - opens import directly
                 document.getElementById('bookTitleBtn').addEventListener('click', () => {
-                    const dropdown = document.getElementById('bookDropdown');
-                    dropdown.classList.toggle('hidden');
-                });
-
-                // Close dropdown when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (!e.target.closest('#bookTitleBtn') && !e.target.closest('#bookDropdown')) {
-                        document.getElementById('bookDropdown').classList.add('hidden');
-                    }
+                    document.getElementById('importDialog').classList.remove('hidden');
                 });
 
                 // Navigation
@@ -193,17 +199,17 @@
                 document.getElementById('tocSelect').addEventListener('change', (e) => this.goToPage(parseInt(e.target.value)));
 
                 // Import handlers
-                document.getElementById('importButton').addEventListener('click', () => {
-                    document.getElementById('importDialog').classList.remove('hidden');
-                    document.getElementById('bookDropdown').classList.add('hidden');
-                });
-
                 document.getElementById('cancelImport').addEventListener('click', () => {
                     document.getElementById('importDialog').classList.add('hidden');
                 });
 
                 document.getElementById('confirmImport').addEventListener('click', () => this.handleImport());
                 document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
+
+                // Scroll event listener for state saving
+                document.getElementById('contentWrapper').addEventListener('scroll', () => {
+                    this.saveState();
+                });
             }
 
             loadBookList() {
@@ -223,6 +229,39 @@
                         });
                         bookList.appendChild(bookItem);
                     }
+                }
+            }
+
+            getCurrentScroll() {
+                return document.getElementById('contentWrapper').scrollTop;
+            }
+
+            setScroll(position) {
+                document.getElementById('contentWrapper').scrollTop = position;
+            }
+
+            restoreState() {
+                const bookData = localStorage.getItem('bookData');
+                const state = localStorage.getItem('bookState');
+
+                if (bookData && state) {
+                    const parsedState = JSON.parse(state);
+                    const parsedBook = JSON.parse(bookData);
+
+                    // Restore book content
+                    this.styleManager.importStyles(parsedBook.styles);
+                    this.pages = parsedBook.html.pages;
+                    this.tocItems = parsedBook.html.toc;
+                    this.currentPage = parsedState.currentPage;
+
+                    // Update UI
+                    document.getElementById('currentBookTitle').textContent = parsedBook.name;
+                    document.getElementById('bookStatus').textContent = parsedBook.name;
+                    
+                    // Update display and restore scroll position
+                    this.updateTOC();
+                    this.updateDisplay();
+                    this.setScroll(parsedState.scrollPosition);
                 }
             }
 
@@ -250,26 +289,38 @@
                 }
 
                 try {
-                    // Process the content and collect optimized data
-                    const { html: optimizedHtml, styles } = this.processBookContent(this.tempBookContent);
-                    
-                    // Store both HTML and styles
-                    const books = this.getStoredBooks();
-                    books[bookName] = {
-                        html: optimizedHtml,
-                        styles: styles
+                    // Clear existing book data
+                    localStorage.removeItem('bookData');
+                    localStorage.removeItem('bookState');
+                    this.styleManager.clear();
+
+                    // Process and store new book
+                    const { html, styles } = this.processBookContent(this.tempBookContent);
+                    const bookData = {
+                        name: bookName,
+                        html,
+                        styles,
+                        timestamp: Date.now()
                     };
                     
-                    localStorage.setItem('books', JSON.stringify(books));
+                    localStorage.setItem('bookData', JSON.stringify(bookData));
                     
-                    this.loadBookList();
+                    // Reset state
+                    const initialState = {
+                        currentPage: 0,
+                        scrollPosition: 0,
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem('bookState', JSON.stringify(initialState));
+                    
+                    // Update UI
                     document.getElementById('importDialog').classList.add('hidden');
                     document.getElementById('bookName').value = '';
                     document.getElementById('fileInput').value = '';
                     this.tempBookContent = null;
                     
-                    // Load the newly imported book
-                    this.loadBook(bookName);
+                    // Load the new book
+                    this.restoreState();
                 } catch (error) {
                     alert('Error importing book: ' + error.message);
                 }
@@ -512,14 +563,11 @@
             updateDisplay() {
                 if (!this.pages.length) {
                     document.getElementById('bookContent').innerHTML = 
-                        '<div class="chapter-loaded max-w-3xl mx-auto px-8 text-center text-gray-400 italic">No book selected</div>';
+                        '<div class="chapter-loaded max-w-3xl mx-auto px-8 text-center text-gray-400 italic">No book loaded</div>';
                     return;
                 }
 
-                // Insert the content directly
                 document.getElementById('bookContent').innerHTML = this.pages[this.currentPage];
-                
-                // Update navigation elements
                 document.getElementById('pageIndicator').textContent = 
                     `Page ${this.currentPage + 1} of ${this.pages.length}`;
                 
@@ -527,6 +575,9 @@
                 document.getElementById('nextButton').disabled = (this.currentPage === this.pages.length - 1);
                 
                 document.getElementById('tocSelect').value = this.currentPage;
+                
+                // Save state after page change
+                this.saveState();
             }
         }
 
