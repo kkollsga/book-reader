@@ -10,11 +10,14 @@
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <!-- Header Section -->
         <div class="bg-gray-50 border-b">
-            <!-- Book Title / Import Trigger -->
-            <button id="bookTitleBtn" class="w-full text-left px-6 py-4 hover:bg-gray-100 transition-colors">
-                <h1 id="currentBookTitle" class="text-2xl">Click to Import Book</h1>
-                <p class="text-gray-600 text-sm mt-1">Currently viewing: <span id="bookStatus">No book loaded</span></p>
-            </button>
+            <!-- Book Title / File Input Trigger -->
+            <label for="fileInput" class="block">
+                <button class="w-full text-left px-6 py-4 hover:bg-gray-100 transition-colors">
+                    <h1 id="currentBookTitle" class="text-2xl">Select a Book...</h1>
+                    <p class="text-gray-600 text-sm mt-1">Click to open book</p>
+                </button>
+            </label>
+            <input type="file" id="fileInput" accept=".html" class="hidden">
 
             <!-- TOC Menu -->
             <select id="tocSelect" class="w-full px-6 py-3 bg-transparent border-t focus:outline-none focus:bg-gray-100">
@@ -45,228 +48,54 @@
         </div>
     </div>
 
-    <!-- Import Modal -->
-    <div id="importDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-xl w-96 overflow-hidden">
-            <div class="px-6 py-4 bg-gray-50 border-b">
-                <h2 class="text-xl">Import Book</h2>
-            </div>
-            <div class="p-6">
-                <div class="mb-4">
-                    <label for="bookName" class="block text-sm mb-1">Book Name</label>
-                    <input type="text" id="bookName" placeholder="Enter book name..." 
-                           class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-300">
-                </div>
-                <div class="mb-6">
-                    <label class="block text-sm mb-1">Book File</label>
-                    <input type="file" id="fileInput" accept=".html" 
-                           class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-50 hover:file:bg-gray-100">
-                </div>
-                <div class="flex justify-end gap-3">
-                    <button id="cancelImport" class="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
-                        Cancel
-                    </button>
-                    <button id="confirmImport" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                        Import
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
-        class StyleManager {
-            constructor() {
-                this.styleMap = new Map();
-                this.styleCounter = 0;
-                this.styleSheet = null;
-                this.init();
-            }
-
-            init() {
-                // Create a new stylesheet
-                const style = document.createElement('style');
-                document.head.appendChild(style);
-                this.styleSheet = style.sheet;
-            }
-
-            generateClassName() {
-                return `dynamic-style-${this.styleCounter++}`;
-            }
-
-            hashStyle(style) {
-                return style.split(';').filter(s => s.trim()).sort().join(';');
-            }
-
-            createClass(style) {
-                if (!style) return '';
-                
-                const styleHash = this.hashStyle(style);
-                
-                if (this.styleMap.has(styleHash)) {
-                    return this.styleMap.get(styleHash);
-                }
-
-                const className = this.generateClassName();
-                const cssRule = `.${className} { ${style} }`;
-                
-                this.styleSheet.insertRule(cssRule, this.styleSheet.cssRules.length);
-                this.styleMap.set(styleHash, className);
-                
-                return className;
-            }
-
-            // Export styles for storage
-            exportStyles() {
-                const styles = {};
-                this.styleMap.forEach((className, styleHash) => {
-                    styles[className] = styleHash;
-                });
-                return {
-                    styles,
-                    counter: this.styleCounter
-                };
-            }
-
-            // Import styles from storage
-            importStyles(styleData) {
-                if (!styleData) return;
-                
-                this.styleCounter = styleData.counter;
-                Object.entries(styleData.styles).forEach(([className, styleHash]) => {
-                    if (!this.styleMap.has(styleHash)) {
-                        const cssRule = `.${className} { ${styleHash} }`;
-                        this.styleSheet.insertRule(cssRule, this.styleSheet.cssRules.length);
-                        this.styleMap.set(styleHash, className);
-                    }
-                });
-            }
-
-            // Clear all styles
-            clear() {
-                while (this.styleSheet.cssRules.length > 0) {
-                    this.styleSheet.deleteRule(0);
-                }
-                this.styleMap.clear();
-                this.styleCounter = 0;
-            }
-        }
-
-        function debounce(func, wait) {
-            let timeout;
-            return function(...args) {
-                const context = this;
-                const later = () => {
-                    clearTimeout(timeout);
-                    func.apply(context, args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
-
         class BookReader {
             constructor() {
-                this.styleManager = new StyleManager();
-                this.currentBook = null;
+                this.currentFile = null;
                 this.currentPage = 0;
                 this.pages = [];
                 this.tocItems = [];
-                
-                // Create the debounced save state function
-                this.saveState = debounce(function() {
-                    const state = {
-                        currentPage: this.currentPage,
-                        scrollPosition: this.getCurrentScroll(),
-                        timestamp: Date.now()
-                    };
-                    localStorage.setItem('bookState', JSON.stringify(state));
-                }.bind(this), 300); // Bind this context
-
                 this.setupEventListeners();
-                this.restoreState();
             }
 
             setupEventListeners() {
-                // Simplified title button - opens import directly
-                document.getElementById('bookTitleBtn').addEventListener('click', () => {
-                    document.getElementById('importDialog').classList.remove('hidden');
-                });
-
                 // Navigation
                 document.getElementById('prevButton').addEventListener('click', () => this.prevPage());
                 document.getElementById('nextButton').addEventListener('click', () => this.nextPage());
                 document.getElementById('tocSelect').addEventListener('change', (e) => this.goToPage(parseInt(e.target.value)));
 
-                // Import handlers
-                document.getElementById('cancelImport').addEventListener('click', () => {
-                    document.getElementById('importDialog').classList.add('hidden');
-                });
-
-                document.getElementById('confirmImport').addEventListener('click', () => this.handleImport());
+                // File input handler
                 document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
 
-                // Scroll event listener for state saving
+                // Save scroll position before unload
+                window.addEventListener('beforeunload', () => this.saveCurrentState());
+                
+                // Track scroll position
                 document.getElementById('contentWrapper').addEventListener('scroll', () => {
-                    this.saveState();
+                    if (this.currentFile) {
+                        clearTimeout(this.scrollTimeout);
+                        this.scrollTimeout = setTimeout(() => this.saveCurrentState(), 100);
+                    }
                 });
             }
 
-            loadBookList() {
-                const bookList = document.getElementById('bookList');
-                bookList.innerHTML = '<div class="px-6 py-3 text-gray-400 italic">No books available</div>';
-                
-                const books = this.getStoredBooks();
-                if (Object.keys(books).length > 0) {
-                    bookList.innerHTML = '';
-                    for (const bookName of Object.keys(books)) {
-                        const bookItem = document.createElement('button');
-                        bookItem.className = 'w-full px-6 py-3 text-left hover:bg-gray-50 text-gray-900';
-                        bookItem.textContent = bookName;
-                        bookItem.addEventListener('click', () => {
-                            this.loadBook(bookName);
-                            document.getElementById('bookDropdown').classList.add('hidden');
-                        });
-                        bookList.appendChild(bookItem);
-                    }
-                }
+            getStoredMetadata() {
+                return JSON.parse(localStorage.getItem('bookMetadata') || '{}');
             }
 
-            getCurrentScroll() {
-                return document.getElementById('contentWrapper').scrollTop;
-            }
+            saveCurrentState() {
+                if (!this.currentFile?.name) return;
 
-            setScroll(position) {
-                document.getElementById('contentWrapper').scrollTop = position;
-            }
+                const metadata = this.getStoredMetadata();
+                const bookName = this.currentFile.name.replace(/\.html$/, '');
+                const contentWrapper = document.getElementById('contentWrapper');
 
-            restoreState() {
-                const bookData = localStorage.getItem('bookData');
-                const state = localStorage.getItem('bookState');
+                metadata[bookName] = {
+                    lastPage: this.currentPage,
+                    scrollPosition: contentWrapper.scrollTop
+                };
 
-                if (bookData && state) {
-                    const parsedState = JSON.parse(state);
-                    const parsedBook = JSON.parse(bookData);
-
-                    // Restore book content
-                    this.styleManager.importStyles(parsedBook.styles);
-                    this.pages = parsedBook.html.pages;
-                    this.tocItems = parsedBook.html.toc;
-                    this.currentPage = parsedState.currentPage;
-
-                    // Update UI
-                    document.getElementById('currentBookTitle').textContent = parsedBook.name;
-                    document.getElementById('bookStatus').textContent = parsedBook.name;
-                    
-                    // Update display and restore scroll position
-                    this.updateTOC();
-                    this.updateDisplay();
-                    this.setScroll(parsedState.scrollPosition);
-                }
-            }
-
-            getStoredBooks() {
-                return JSON.parse(localStorage.getItem('books') || '{}');
+                localStorage.setItem('bookMetadata', JSON.stringify(metadata));
             }
 
             async handleFileSelect(event) {
@@ -275,177 +104,32 @@
 
                 try {
                     const content = await file.text();
-                    this.tempBookContent = content;
+                    this.currentFile = file;
+                    const bookName = file.name.replace(/\.html$/, '');
+                    
+                    // Load metadata if exists
+                    const metadata = this.getStoredMetadata()[bookName] || {};
+                    this.currentPage = metadata.lastPage || 0;
+
+                    document.getElementById('currentBookTitle').textContent = bookName;
+                    this.parseBook(content);
+                    this.updateDisplay();
+
+                    // Restore scroll position after content is loaded
+                    if (metadata.scrollPosition) {
+                        setTimeout(() => {
+                            document.getElementById('contentWrapper').scrollTop = metadata.scrollPosition;
+                        }, 100);
+                    }
                 } catch (error) {
                     alert('Error reading file: ' + error.message);
                 }
-            }
 
-            handleImport() {
-                const bookName = document.getElementById('bookName').value.trim();
-                if (!bookName || !this.tempBookContent) {
-                    alert('Please enter a book name and select a file');
-                    return;
-                }
-
-                try {
-                    // Clear existing book data
-                    localStorage.removeItem('bookData');
-                    localStorage.removeItem('bookState');
-                    this.styleManager.clear();
-
-                    // Process and store new book
-                    const { html, styles } = this.processBookContent(this.tempBookContent);
-                    const bookData = {
-                        name: bookName,
-                        html,
-                        styles,
-                        timestamp: Date.now()
-                    };
-                    
-                    localStorage.setItem('bookData', JSON.stringify(bookData));
-                    
-                    // Reset state
-                    const initialState = {
-                        currentPage: 0,
-                        scrollPosition: 0,
-                        timestamp: Date.now()
-                    };
-                    localStorage.setItem('bookState', JSON.stringify(initialState));
-                    
-                    // Update UI
-                    document.getElementById('importDialog').classList.add('hidden');
-                    document.getElementById('bookName').value = '';
-                    document.getElementById('fileInput').value = '';
-                    this.tempBookContent = null;
-                    
-                    // Load the new book
-                    this.restoreState();
-                } catch (error) {
-                    alert('Error importing book: ' + error.message);
-                }
-            }
-
-            processBookContent(content) {
-                // Clear existing styles
-                this.styleManager.clear();
-                
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(content, 'text/html');
-                
-                const chapters = doc.querySelectorAll('.chapter-loaded');
-                const processedPages = [];
-                const tocItems = [['Cover', 0]];
-
-                chapters.forEach((chapter, index) => {
-                    const titleElem = chapter.querySelector('h1, h2, h3');
-                    if (titleElem) {
-                        const title = titleElem.textContent.trim();
-                        tocItems.push([title, processedPages.length]);
-                    }
-
-                    const chapterDiv = document.createElement('div');
-                    chapterDiv.className = 'chapter-loaded max-w-3xl mx-auto px-8';
-                    chapterDiv.innerHTML = this.cleanContent(chapter);
-                    processedPages.push(chapterDiv.outerHTML);
-                });
-
-                return {
-                    html: {
-                        pages: processedPages,
-                        toc: tocItems
-                    },
-                    styles: this.styleManager.exportStyles()
-                };
-            }
-
-            loadBook(bookName) {
-                if (!bookName) return;
-                
-                const books = this.getStoredBooks();
-                const bookData = books[bookName];
-                if (!bookData) {
-                    alert('Book not found');
-                    return;
-                }
-
-                // Clear existing styles and import new ones
-                this.styleManager.clear();
-                this.styleManager.importStyles(bookData.styles);
-
-                this.currentBook = bookName;
-                document.getElementById('currentBookTitle').textContent = bookName;
-                
-                // Load the optimized content
-                this.pages = bookData.html.pages;
-                this.tocItems = bookData.html.toc;
-                
-                this.currentPage = 0;
-                this.updateTOC();
-                this.updateDisplay();
-            }
-
-            cleanContent(element) {
-                // Clone the element to avoid modifying the original
-                const clone = element.cloneNode(true);
-                
-                const cleanup = (node) => {
-                    if (node.nodeType === 1) { // Element node
-                        // Remove event handlers and data attributes
-                        const attributesToRemove = [
-                            'data-originalfontfamily', 
-                            'data-originalfontsize', 
-                            'data-originalcolor', 
-                            'data-originalbg',
-                            'onload',
-                            'onerror'
-                        ];
-                        
-                        attributesToRemove.forEach(attr => {
-                            if (node.hasAttribute(attr)) {
-                                node.removeAttribute(attr);
-                            }
-                        });
-
-                        // Handle inline styles
-                        if (node.hasAttribute('style')) {
-                            let style = node.getAttribute('style');
-                            
-                            // Replace specific background color
-                            if (style.includes('background-color: rgb(249, 248, 246)')) {
-                                style = style.replace(
-                                    'background-color: rgb(249, 248, 246)',
-                                    'background-color: white'
-                                );
-                            }
-
-                            // Create and apply CSS class
-                            const className = this.styleManager.createClass(style);
-                            if (className) {
-                                node.classList.add(className);
-                                node.removeAttribute('style');
-                            }
-                        }
-
-                        // Special handling for images
-                        if (node.tagName === 'IMG') {
-                            node.removeAttribute('onload');
-                            node.removeAttribute('onerror');
-                        }
-                        
-                        // Recursively clean child nodes
-                        node.childNodes.forEach(cleanup);
-                    }
-                };
-                
-                cleanup(clone);
-                return clone.innerHTML;
+                // Reset file input to allow selecting the same file again
+                event.target.value = '';
             }
 
             parseBook(content) {
-                // Clear existing dynamic styles when loading a new book
-                this.styleManager = new StyleManager();
-                
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(content, 'text/html');
                 
@@ -471,12 +155,10 @@
             }
 
             cleanContent(element) {
-                // Clone the element to avoid modifying the original
                 const clone = element.cloneNode(true);
                 
                 const cleanup = (node) => {
                     if (node.nodeType === 1) { // Element node
-                        // Remove event handlers and data attributes
                         const attributesToRemove = [
                             'data-originalfontfamily', 
                             'data-originalfontsize', 
@@ -492,13 +174,11 @@
                             }
                         });
 
-                        // Special handling for images
                         if (node.tagName === 'IMG') {
                             node.removeAttribute('onload');
                             node.removeAttribute('onerror');
                         }
 
-                        // Handle background color replacement
                         if (node.hasAttribute('style')) {
                             const style = node.getAttribute('style');
                             if (style.includes('background-color: rgb(249, 248, 246)')) {
@@ -509,8 +189,7 @@
                                 node.setAttribute('style', newStyle);
                             }
                         }
-                        
-                        // Also handle bgcolor attribute if present
+
                         if (node.hasAttribute('bgcolor')) {
                             const bgcolor = node.getAttribute('bgcolor');
                             if (bgcolor === 'rgb(249, 248, 246)' || bgcolor === '#F9F8F6') {
@@ -518,7 +197,6 @@
                             }
                         }
                         
-                        // Recursively clean child nodes
                         node.childNodes.forEach(cleanup);
                     }
                 };
@@ -563,7 +241,7 @@
             updateDisplay() {
                 if (!this.pages.length) {
                     document.getElementById('bookContent').innerHTML = 
-                        '<div class="chapter-loaded max-w-3xl mx-auto px-8 text-center text-gray-400 italic">No book loaded</div>';
+                        '<div class="chapter-loaded max-w-3xl mx-auto px-8 text-center text-gray-400 italic">No book selected</div>';
                     return;
                 }
 
@@ -576,8 +254,7 @@
                 
                 document.getElementById('tocSelect').value = this.currentPage;
                 
-                // Save state after page change
-                this.saveState();
+                this.saveCurrentState();
             }
         }
 
