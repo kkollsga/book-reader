@@ -54,8 +54,8 @@
                 </button>
                 <input type="file" id="fileInput" accept=".html" class="hidden">
 
-                <select id="tocSelect" class="ml-4 bg-transparent focus:outline-none hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer text-sm min-w-[200px]">
-                    <option value="">Table of Contents...</option>
+                <select id="tocSelect" class="ml-4 bg-transparent focus:outline-none hover:text-gray-600 dark:hover:text-gray-300 dark:text-white focus:text-gray-900 dark:focus:text-white cursor-pointer text-sm min-w-[200px]">
+                    <option value="" class="bg-white dark:bg-true-black">Table of Contents...</option>
                 </select>
 
                 <button id="darkModeToggle" class="ml-4 p-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
@@ -89,331 +89,342 @@
         </div>
     </div>
 
-    <script>
-        class BookReader {
-            constructor() {
-                this.currentFile = null;
-                this.currentPage = 0;
-                this.pages = [];
-                this.tocItems = [];
-                this.isTransitioning = false;
-                this.setupEventListeners();
-                this.setupIntersectionObserver();
-                this.initializeTheme();
+<script>
+class BookReader {
+    constructor() {
+        this.currentFile = null;
+        this.currentPage = 0;
+        this.pages = [];
+        this.tocItems = [];
+        this.isTransitioning = false;
+        this.setupEventListeners();
+        this.setupIntersectionObserver();
+        this.initializeTheme();
+    }
+
+    initializeTheme() {
+        // Get initial theme from localStorage or system preference
+        const isDark = localStorage.getItem('darkMode') === 'true' || 
+            (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        }
+        
+        // Set up theme toggle
+        const toggleButton = document.getElementById('darkModeToggle');
+        toggleButton.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+        });
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (!localStorage.getItem('darkMode')) {
+                document.documentElement.classList.toggle('dark', e.matches);
             }
+        });
+    }
 
-            initializeTheme() {
-                // Get initial theme from localStorage or system preference
-                const isDark = localStorage.getItem('darkMode') === 'true' || 
-                    (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                
-                if (isDark) {
-                    document.documentElement.classList.add('dark');
-                }
-                
-                // Set up theme toggle
-                const toggleButton = document.getElementById('darkModeToggle');
-                toggleButton.addEventListener('click', () => {
-                    document.documentElement.classList.toggle('dark');
-                    localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
-                });
+    setupIntersectionObserver() {
+        const contentWrapper = document.getElementById('contentWrapper');
+        let isAtBottom = false;
+        let isAtTop = true;
 
-                // Listen for system theme changes
-                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-                    if (!localStorage.getItem('darkMode')) {
-                        document.documentElement.classList.toggle('dark', e.matches);
-                    }
-                });
+        // Intersection Observer for sentinels
+        const options = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0
+        };
+
+        const topObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                isAtTop = entry.isIntersecting;
+                this.updateControlsVisibility(isAtTop, isAtBottom);
+            });
+        }, options);
+
+        const bottomObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                isAtBottom = entry.isIntersecting;
+                this.updateControlsVisibility(isAtTop, isAtBottom);
+            });
+        }, options);
+
+        topObserver.observe(document.getElementById('topSentinel'));
+        bottomObserver.observe(document.getElementById('bottomSentinel'));
+
+        // Add scroll event listener for additional control
+        contentWrapper.addEventListener('scroll', () => {
+            const atBottom = contentWrapper.scrollHeight - contentWrapper.scrollTop <= contentWrapper.clientHeight + 1;
+            if (atBottom !== isAtBottom) {
+                isAtBottom = atBottom;
+                this.updateControlsVisibility(isAtTop, isAtBottom);
             }
+        });
+    }
 
-            setupIntersectionObserver() {
-                const contentWrapper = document.getElementById('contentWrapper');
-                let isAtBottom = false;
-                let isAtTop = true;
+    updateControlsVisibility(isAtTop, isAtBottom) {
+        const header = document.getElementById('header');
+        const footer = document.getElementById('footer');
 
-                // Intersection Observer for sentinels
-                const options = {
-                    root: null,
-                    rootMargin: '0px',
-                    threshold: 0
-                };
-
-                const topObserver = new IntersectionObserver(entries => {
-                    entries.forEach(entry => {
-                        isAtTop = entry.isIntersecting;
-                        this.updateControlsVisibility(isAtTop, isAtBottom);
-                    });
-                }, options);
-
-                const bottomObserver = new IntersectionObserver(entries => {
-                    entries.forEach(entry => {
-                        isAtBottom = entry.isIntersecting;
-                        this.updateControlsVisibility(isAtTop, isAtBottom);
-                    });
-                }, options);
-
-                topObserver.observe(document.getElementById('topSentinel'));
-                bottomObserver.observe(document.getElementById('bottomSentinel'));
-
-                // Add scroll event listener for additional control
-                contentWrapper.addEventListener('scroll', () => {
-                    const atBottom = contentWrapper.scrollHeight - contentWrapper.scrollTop <= contentWrapper.clientHeight + 1;
-                    if (atBottom !== isAtBottom) {
-                        isAtBottom = atBottom;
-                        this.updateControlsVisibility(isAtTop, isAtBottom);
-                    }
-                });
-            }
-
-            updateControlsVisibility(isAtTop, isAtBottom) {
-                const header = document.getElementById('header');
-                const footer = document.getElementById('footer');
-
-                if (isAtTop) {
-                    header.classList.remove('controls-hidden');
-                    header.classList.add('controls-visible');
-                } else {
-                    header.classList.remove('controls-visible');
-                    header.classList.add('controls-hidden');
-                }
-
-                if (isAtBottom) {
-                    footer.classList.remove('controls-hidden');
-                    footer.classList.add('controls-visible');
-                } else {
-                    footer.classList.remove('controls-visible');
-                    footer.classList.add('controls-hidden');
-                }
-            }
-
-            setupEventListeners() {
-                // Navigation
-                document.getElementById('prevButton').addEventListener('click', () => this.prevPage());
-                document.getElementById('nextButton').addEventListener('click', () => this.nextPage());
-                document.getElementById('tocSelect').addEventListener('change', (e) => this.goToPage(parseInt(e.target.value)));
-                document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
-                window.addEventListener('beforeunload', () => this.saveCurrentState());
-            }
-
-            getStoredMetadata() {
-                return JSON.parse(localStorage.getItem('bookMetadata') || '{}');
-            }
-
-            saveCurrentState() {
-                if (!this.currentFile?.name) return;
-                const metadata = this.getStoredMetadata();
-                const bookName = this.currentFile.name.replace(/\.html$/, '');
-                metadata[bookName] = { lastPage: this.currentPage };
-                localStorage.setItem('bookMetadata', JSON.stringify(metadata));
-            }
-
-            async handleFileSelect(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                try {
-                    const content = await file.text();
-                    this.currentFile = file;
-                    const bookName = file.name.replace(/\.html$/, '');
-                    
-                    document.getElementById('currentBookTitle').textContent = bookName;
-                    this.parseBook(content);
-                    
-                    const metadata = this.getStoredMetadata()[bookName] || {};
-                    this.currentPage = metadata.lastPage || 0;
-                    
-                    this.updateDisplay();
-                    this.scrollToTop();
-                } catch (error) {
-                    alert('Error reading file: ' + error.message);
-                }
-
-                event.target.value = '';
-            }
-
-            parseBook(content) {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(content, 'text/html');
-                
-                const chapters = doc.querySelectorAll('.chapter-loaded');
-                this.pages = [];
-                this.tocItems = [['Cover', 0]];
-
-                chapters.forEach((chapter) => {
-                    const titleElem = chapter.querySelector('h1, h2, h3');
-                    if (titleElem) {
-                        const title = titleElem.textContent.trim();
-                        this.tocItems.push([title, this.pages.length]);
-                    }
-
-                    const chapterDiv = document.createElement('div');
-                    chapterDiv.className = 'chapter-loaded';
-                    chapterDiv.innerHTML = this.cleanContent(chapter);
-                    this.pages.push(chapterDiv.outerHTML);
-                });
-
-                this.updateTOC();
-            }
-
-            cleanContent(element) {
-                const clone = element.cloneNode(true);
-                
-                const cleanup = (node) => {
-                    if (node.nodeType === 1) { // Element node
-                        // Remove unnecessary attributes
-                        ['data-originalfontfamily', 'data-originalfontsize', 
-                        'data-originalcolor', 'data-originalbg', 'onload', 'onerror']
-                            .forEach(attr => {
-                                if (node.hasAttribute(attr)) {
-                                    node.removeAttribute(attr);
-                                }
-                            });
-
-                        // Remove all inline styles that affect colors
-                        if (node.hasAttribute('style')) {
-                            const style = node.getAttribute('style');
-                            const newStyle = style
-                                .replace(/background-color:[^;]+;?/gi, '')
-                                .replace(/color:[^;]+;?/gi, '')
-                                .trim();
-                            
-                            if (newStyle) {
-                                node.setAttribute('style', newStyle);
-                            } else {
-                                node.removeAttribute('style');
-                            }
-                        }
-                        
-                        // Process children
-                        node.childNodes.forEach(cleanup);
-                    }
-                };
-                
-                cleanup(clone);
-                return clone.innerHTML;
-            }
-
-            updateTOC() {
-                const tocSelect = document.getElementById('tocSelect');
-                tocSelect.innerHTML = '<option value="">Table of Contents...</option>';
-                
-                this.tocItems.forEach(([title, pageNum]) => {
-                    const option = document.createElement('option');
-                    option.value = pageNum;
-                    option.textContent = title;
-                    tocSelect.appendChild(option);
-                });
-            }
-
-            scrollToTop() {
-                const contentWrapper = document.getElementById('contentWrapper');
-                
-                // Try multiple scroll methods for maximum compatibility
-                const scrollMethods = [
-                    // Method 1: scrollTo with options
-                    () => contentWrapper.scrollTo({
-                        top: 0,
-                        behavior: 'instant',
-                    }),
-                    // Method 2: Direct scrollTop assignment
-                    () => contentWrapper.scrollTop = 0,
-                    // Method 3: Traditional scrollTo
-                    () => contentWrapper.scrollTo(0, 0),
-                    // Method 4: Scroll parent element if exists
-                    () => contentWrapper.parentElement?.scrollTo(0, 0),
-                ];
-
-                // Try all methods
-                scrollMethods.forEach(method => {
-                    try {
-                        method();
-                    } catch (e) {
-                        console.error('Scroll method failed:', e);
-                    }
-                });
-
-                // Double-check scroll position in next frame
-                requestAnimationFrame(() => {
-                    if (contentWrapper.scrollTop !== 0) {
-                        contentWrapper.scrollTop = 0;
-                    }
-                });
-            }
-
-            scrollToBottom() {
-                const contentWrapper = document.getElementById('contentWrapper');
-                contentWrapper.scrollTo({
-                    top: contentWrapper.scrollHeight,
-                    behavior: 'instant'
-                });
-            }
-
-            prevPage() {
-                if (this.currentPage > 0) {
-                    this.currentPage--;
-                    this.updateDisplay();
-                    requestAnimationFrame(() => {
-                        this.scrollToBottom();
-                    });
-                }
-            }
-
-            nextPage() {
-                if (this.currentPage < this.pages.length - 1 && !this.isTransitioning) {
-                    this.isTransitioning = true;
-                    
-                    this.currentPage++;
-                    this.updateDisplay();
-                    
-                    // Give the DOM a chance to settle
-                    Promise.resolve().then(() => {
-                        this.scrollToTop();
-                        
-                        // Final check after a brief delay
-                        setTimeout(() => {
-                            if (document.getElementById('contentWrapper').scrollTop !== 0) {
-                                this.scrollToTop();
-                            }
-                            this.isTransitioning = false;
-                        }, 50);
-                    });
-                }
-            }
-
-            goToPage(pageNum) {
-                if (pageNum >= 0 && pageNum < this.pages.length) {
-                    this.currentPage = pageNum;
-                    this.updateDisplay();
-                    requestAnimationFrame(() => {
-                        this.scrollToTop();
-                    });
-                }
-            }
-
-            updateDisplay() {
-                if (!this.pages.length) {
-                    document.getElementById('bookContent').innerHTML = 
-                        '<div class="chapter-loaded text-center text-gray-400 italic">No book selected</div>';
-                    return;
-                }
-
-                document.getElementById('bookContent').innerHTML = this.pages[this.currentPage];
-                document.getElementById('pageIndicator').textContent = 
-                    `${this.currentPage + 1} / ${this.pages.length}`;
-                
-                document.getElementById('prevButton').disabled = (this.currentPage === 0);
-                document.getElementById('nextButton').disabled = (this.currentPage === this.pages.length - 1);
-                
-                document.getElementById('tocSelect').value = this.currentPage;
-                
-                this.saveCurrentState();
-            }
+        if (isAtTop) {
+            header.classList.remove('controls-hidden');
+            header.classList.add('controls-visible');
+        } else {
+            header.classList.remove('controls-visible');
+            header.classList.add('controls-hidden');
         }
 
-        // Initialize the book reader when the page loads
-        window.addEventListener('DOMContentLoaded', () => {
-            window.bookReader = new BookReader();
+        if (isAtBottom) {
+            footer.classList.remove('controls-hidden');
+            footer.classList.add('controls-visible');
+        } else {
+            footer.classList.remove('controls-visible');
+            footer.classList.add('controls-hidden');
+        }
+    }
+
+    setupEventListeners() {
+        // Navigation
+        document.getElementById('prevButton').addEventListener('click', () => this.prevPage());
+        document.getElementById('nextButton').addEventListener('click', () => this.nextPage());
+        document.getElementById('tocSelect').addEventListener('change', (e) => this.goToPage(parseInt(e.target.value)));
+        document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
+        window.addEventListener('beforeunload', () => this.saveCurrentState());
+    }
+
+    getStoredMetadata() {
+        return JSON.parse(localStorage.getItem('bookMetadata') || '{}');
+    }
+
+    saveCurrentState() {
+        if (!this.currentFile?.name) return;
+        const metadata = this.getStoredMetadata();
+        const bookName = this.currentFile.name.replace(/\.html$/, '');
+        metadata[bookName] = { lastPage: this.currentPage };
+        localStorage.setItem('bookMetadata', JSON.stringify(metadata));
+    }
+
+    async handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const content = await file.text();
+            this.currentFile = file;
+            const bookName = file.name.replace(/\.html$/, '');
+            
+            document.getElementById('currentBookTitle').textContent = bookName;
+            this.parseBook(content);
+            
+            const metadata = this.getStoredMetadata()[bookName] || {};
+            this.currentPage = metadata.lastPage || 0;
+            
+            this.updateDisplay();
+            this.scrollToTop();
+        } catch (error) {
+            alert('Error reading file: ' + error.message);
+        }
+
+        event.target.value = '';
+    }
+
+    parseBook(content) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+        
+        const chapters = doc.querySelectorAll('.chapter-loaded');
+        this.pages = [];
+        this.tocItems = [['Cover', 0]];
+
+        chapters.forEach((chapter) => {
+            const titleElem = chapter.querySelector('h1, h2, h3');
+            if (titleElem) {
+                const title = titleElem.textContent.trim();
+                this.tocItems.push([title, this.pages.length]);
+            }
+
+            const chapterDiv = document.createElement('div');
+            chapterDiv.className = 'chapter-loaded';
+            chapterDiv.innerHTML = this.cleanContent(chapter);
+            this.pages.push(chapterDiv.outerHTML);
         });
-    </script>
+
+        this.updateTOC();
+    }
+
+    cleanContent(element) {
+        const clone = element.cloneNode(true);
+        
+        const cleanup = (node) => {
+            if (node.nodeType === 1) { // Element node
+                // Remove unnecessary attributes
+                ['data-originalfontfamily', 'data-originalfontsize', 
+                'data-originalcolor', 'data-originalbg', 'onload', 'onerror']
+                    .forEach(attr => {
+                        if (node.hasAttribute(attr)) {
+                            node.removeAttribute(attr);
+                        }
+                    });
+
+                // Remove all inline styles that affect colors
+                if (node.hasAttribute('style')) {
+                    const style = node.getAttribute('style');
+                    const newStyle = style
+                        .replace(/background-color:[^;]+;?/gi, '')
+                        .replace(/color:[^;]+;?/gi, '')
+                        .trim();
+                    
+                    if (newStyle) {
+                        node.setAttribute('style', newStyle);
+                    } else {
+                        node.removeAttribute('style');
+                    }
+                }
+                
+                // Process children
+                node.childNodes.forEach(cleanup);
+            }
+        };
+        
+        cleanup(clone);
+        return clone.innerHTML;
+    }
+
+    updateTOC() {
+        const tocSelect = document.getElementById('tocSelect');
+        tocSelect.innerHTML = '<option value="" class="bg-white dark:bg-true-black">Table of Contents...</option>';
+        
+        this.tocItems.forEach(([title, pageNum]) => {
+            const option = document.createElement('option');
+            option.value = pageNum;
+            option.textContent = title;
+            option.className = 'bg-white dark:bg-true-black';
+            tocSelect.appendChild(option);
+        });
+    }
+
+    scrollToTop() {
+        const contentWrapper = document.getElementById('contentWrapper');
+        
+        // Try multiple scroll methods for maximum compatibility
+        const scrollMethods = [
+            // Method 1: scrollTo with options
+            () => contentWrapper.scrollTo({
+                top: 0,
+                behavior: 'instant',
+            }),
+            // Method 2: Direct scrollTop assignment
+            () => contentWrapper.scrollTop = 0,
+            // Method 3: Traditional scrollTo
+            () => contentWrapper.scrollTo(0, 0),
+            // Method 4: Scroll parent element if exists
+            () => contentWrapper.parentElement?.scrollTo(0, 0),
+        ];
+
+        // Try all methods
+        scrollMethods.forEach(method => {
+            try {
+                method();
+            } catch (e) {
+                console.error('Scroll method failed:', e);
+            }
+        });
+
+        // Double-check scroll position in next frame
+        requestAnimationFrame(() => {
+            if (contentWrapper.scrollTop !== 0) {
+                contentWrapper.scrollTop = 0;
+            }
+        });
+    }
+
+    scrollToBottom() {
+        const contentWrapper = document.getElementById('contentWrapper');
+        contentWrapper.scrollTo({
+            top: contentWrapper.scrollHeight,
+            behavior: 'instant'
+        });
+    }
+
+    prevPage() {
+        if (this.currentPage > 0) {
+            this.currentPage--;
+            this.updateDisplay();
+            requestAnimationFrame(() => {
+                this.scrollToBottom();
+            });
+        }
+    }
+
+    nextPage() {
+        if (this.currentPage < this.pages.length - 1 && !this.isTransitioning) {
+            this.isTransitioning = true;
+            this.currentPage++;
+            this.updateDisplay();
+            requestAnimationFrame(() => {
+                this.isTransitioning = false;
+            });
+        }
+    }
+
+    goToPage(pageNum) {
+        if (pageNum >= 0 && pageNum < this.pages.length) {
+            this.currentPage = pageNum;
+            this.updateDisplay();
+            requestAnimationFrame(() => {
+                this.scrollToTop();
+            });
+        }
+    }
+
+    updateDisplay() {
+        if (!this.pages.length) {
+            document.getElementById('bookContent').innerHTML = 
+                '<div class="chapter-loaded text-center text-gray-400 italic">No book selected</div>';
+            return;
+        }
+
+        const contentWrapper = document.getElementById('contentWrapper');
+        const oldContent = document.getElementById('bookContent');
+        
+        // Remove old content
+        oldContent.remove();
+        
+        // Force reflow
+        void contentWrapper.offsetHeight;
+        
+        // Create fresh content container
+        const newContent = document.createElement('div');
+        newContent.id = 'bookContent';
+        newContent.className = 'max-w-3xl mx-auto px-4';
+        newContent.innerHTML = this.pages[this.currentPage];
+        
+        // Add new content
+        contentWrapper.insertBefore(newContent, contentWrapper.querySelector('#bottomSentinel'));
+        
+        // Force another reflow
+        void contentWrapper.offsetHeight;
+        
+        // Update UI elements
+        document.getElementById('pageIndicator').textContent = 
+            `${this.currentPage + 1} / ${this.pages.length}`;
+        
+        document.getElementById('prevButton').disabled = (this.currentPage === 0);
+        document.getElementById('nextButton').disabled = (this.currentPage === this.pages.length - 1);
+        
+        document.getElementById('tocSelect').value = this.currentPage;
+        
+        this.saveCurrentState();
+    }
+}
+
+// Initialize the book reader when the page loads
+window.addEventListener('DOMContentLoaded', () => {
+    window.bookReader = new BookReader();
+});
+</script>
 </body>
 </html>
