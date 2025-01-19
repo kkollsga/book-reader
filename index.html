@@ -168,21 +168,28 @@ class BookReader {
     updateControlsVisibility(isAtTop, isAtBottom) {
         const header = document.getElementById('header');
         const footer = document.getElementById('footer');
+        
+        // Ensure elements exist
+        if (!header || !footer) return;
+        
+        const updateClasses = (element, shouldBeVisible) => {
+            if (shouldBeVisible) {
+                element.classList.remove('controls-hidden');
+                element.classList.add('controls-visible');
+            } else {
+                element.classList.remove('controls-visible');
+                element.classList.add('controls-hidden');
+            }
+        };
 
+        // When at top, show both controls
         if (isAtTop) {
-            header.classList.remove('controls-hidden');
-            header.classList.add('controls-visible');
+            updateClasses(header, true);
+            updateClasses(footer, true);
         } else {
-            header.classList.remove('controls-visible');
-            header.classList.add('controls-hidden');
-        }
-
-        if (isAtBottom) {
-            footer.classList.remove('controls-hidden');
-            footer.classList.add('controls-visible');
-        } else {
-            footer.classList.remove('controls-visible');
-            footer.classList.add('controls-hidden');
+            updateClasses(header, false);
+            // When not at top, footer visibility depends on bottom position
+            updateClasses(footer, isAtBottom);
         }
     }
 
