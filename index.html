@@ -5,67 +5,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'true-black': '#000000'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        .controls-hidden {
-            opacity: 0;
-            pointer-events: none;
+        .controls-hidden { opacity: 0; pointer-events: none; }
+        .controls-visible { opacity: 1; pointer-events: auto; }
+        .nav-controls { transition: opacity 0.2s ease-in-out; }
+        
+        /* Theme aware content styles */
+        .chapter-loaded {
+            color: rgb(17, 24, 39) !important; /* text-gray-900 */
+            background-color: white !important;
         }
         
-        .controls-visible {
-            opacity: 1;
-            pointer-events: auto;
+        .dark .chapter-loaded {
+            color: rgb(243, 244, 246) !important; /* text-gray-100 */
+            background-color: black !important;
         }
         
-        .nav-controls {
-            transition: opacity 0.2s ease-in-out;
+        .chapter-loaded * {
+            background-color: inherit !important;
+            color: inherit !important;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-white dark:bg-true-black text-gray-900 dark:text-white min-h-screen transition-colors duration-200">
     <div class="min-h-screen flex flex-col">
-        <!-- Top sentinel for intersection observer -->
         <div id="topSentinel" class="absolute top-0 h-1 w-full pointer-events-none"></div>
         
-        <!-- Header Section -->
-        <div id="header" class="fixed top-0 left-0 right-0 bg-white/95 border-b z-10 nav-controls controls-visible backdrop-blur-sm">
+        <div id="header" class="fixed top-0 left-0 right-0 bg-white/95 dark:bg-true-black/95 border-b border-gray-200 dark:border-gray-700 z-10 nav-controls controls-visible backdrop-blur-sm">
             <div class="flex items-center justify-between px-4 h-12 max-w-3xl mx-auto">
-                <!-- Title area -->
                 <button id="titleButton" onclick="document.getElementById('fileInput').click()" 
-                        class="text-left hover:text-gray-600 transition-colors cursor-pointer truncate flex-1">
+                        class="text-left hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer truncate flex-1">
                     <span id="currentBookTitle" class="text-lg font-medium">Select a Book...</span>
                 </button>
                 <input type="file" id="fileInput" accept=".html" class="hidden">
 
-                <!-- TOC Menu -->
-                <select id="tocSelect" class="ml-4 bg-transparent focus:outline-none hover:text-gray-600 cursor-pointer text-sm min-w-[200px]">
+                <select id="tocSelect" class="ml-4 bg-transparent focus:outline-none hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer text-sm min-w-[200px]">
                     <option value="">Table of Contents...</option>
                 </select>
+
+                <button id="darkModeToggle" class="ml-4 p-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                    <i class="fas fa-moon text-blue-500 dark:hidden"></i>
+                    <i class="fas fa-sun text-yellow-500 hidden dark:inline"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Content Area - Updated with internal sentinels -->
-        <div id="contentWrapper" class="flex-1 overflow-y-auto bg-white pt-12 pb-12">
-            <!-- Top sentinel moved inside -->
+        <div id="contentWrapper" class="flex-1 overflow-y-auto bg-white dark:bg-true-black pt-12 pb-12">
             <div id="topSentinel" class="sticky top-0 h-1 w-full pointer-events-none"></div>
             
             <div id="bookContent" class="max-w-3xl mx-auto px-4">
                 <div class="chapter-loaded">
-                    <!-- Content will be inserted here -->
                 </div>
             </div>
             
-            <!-- Bottom sentinel moved inside -->
             <div id="bottomSentinel" class="sticky bottom-0 h-1 w-full pointer-events-none"></div>
         </div>
 
-        <!-- Navigation Footer -->
-        <div id="footer" class="fixed bottom-0 left-0 right-0 bg-white/95 border-t z-10 nav-controls controls-visible backdrop-blur-sm">
+        <div id="footer" class="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-true-black/95 border-t border-gray-200 dark:border-gray-700 z-10 nav-controls controls-visible backdrop-blur-sm">
             <div class="flex items-center justify-between px-4 h-12 max-w-3xl mx-auto">
-                <button id="prevButton" class="px-4 py-1 text-gray-600 hover:text-gray-900 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <button id="prevButton" class="px-4 py-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     ← Previous
                 </button>
-                <div id="pageIndicator" class="text-gray-500 text-sm">Page 0 of 0</div>
-                <button id="nextButton" class="px-4 py-1 text-gray-600 hover:text-gray-900 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <div id="pageIndicator" class="text-gray-500 dark:text-gray-400 text-sm">Page 0 of 0</div>
+                <button id="nextButton" class="px-4 py-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     Next →
                 </button>
             </div>
@@ -79,9 +94,34 @@
                 this.currentPage = 0;
                 this.pages = [];
                 this.tocItems = [];
-                this.isTransitioning = false;  // Add this line
+                this.isTransitioning = false;
                 this.setupEventListeners();
                 this.setupIntersectionObserver();
+                this.initializeTheme();
+            }
+
+            initializeTheme() {
+                // Get initial theme from localStorage or system preference
+                const isDark = localStorage.getItem('darkMode') === 'true' || 
+                    (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                
+                if (isDark) {
+                    document.documentElement.classList.add('dark');
+                }
+                
+                // Set up theme toggle
+                const toggleButton = document.getElementById('darkModeToggle');
+                toggleButton.addEventListener('click', () => {
+                    document.documentElement.classList.toggle('dark');
+                    localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+                });
+
+                // Listen for system theme changes
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                    if (!localStorage.getItem('darkMode')) {
+                        document.documentElement.classList.toggle('dark', e.matches);
+                    }
+                });
             }
 
             setupIntersectionObserver() {
@@ -217,24 +257,32 @@
                 const clone = element.cloneNode(true);
                 
                 const cleanup = (node) => {
-                    if (node.nodeType === 1) {
+                    if (node.nodeType === 1) { // Element node
+                        // Remove unnecessary attributes
                         ['data-originalfontfamily', 'data-originalfontsize', 
-                         'data-originalcolor', 'data-originalbg', 'onload', 'onerror']
+                        'data-originalcolor', 'data-originalbg', 'onload', 'onerror']
                             .forEach(attr => {
                                 if (node.hasAttribute(attr)) {
                                     node.removeAttribute(attr);
                                 }
                             });
 
+                        // Remove all inline styles that affect colors
                         if (node.hasAttribute('style')) {
                             const style = node.getAttribute('style');
-                            if (style.includes('background-color: rgb(249, 248, 246)')) {
-                                node.setAttribute('style', 
-                                    style.replace('background-color: rgb(249, 248, 246)',
-                                                'background-color: white'));
+                            const newStyle = style
+                                .replace(/background-color:[^;]+;?/gi, '')
+                                .replace(/color:[^;]+;?/gi, '')
+                                .trim();
+                            
+                            if (newStyle) {
+                                node.setAttribute('style', newStyle);
+                            } else {
+                                node.removeAttribute('style');
                             }
                         }
                         
+                        // Process children
                         node.childNodes.forEach(cleanup);
                     }
                 };
@@ -329,7 +377,7 @@
                     });
                 }
             }
-            
+
             goToPage(pageNum) {
                 if (pageNum >= 0 && pageNum < this.pages.length) {
                     this.currentPage = pageNum;
