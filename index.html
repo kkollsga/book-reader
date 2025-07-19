@@ -40,6 +40,142 @@
             background-color: inherit !important;
             color: inherit !important;
         }
+
+        /* Highlight and selection styles */
+        .text-highlight {
+            padding: 2px 4px;
+            border-radius: 4px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .text-highlight.selected {
+            outline: 2px solid #3b82f6;
+            outline-offset: 1px;
+        }
+
+        /* Highlight colors */
+        .highlight-yellow { background-color: rgba(254, 240, 138, 0.6); }
+        .highlight-green { background-color: rgba(187, 247, 208, 0.6); }
+        .highlight-blue { background-color: rgba(191, 219, 254, 0.6); }
+        .highlight-pink { background-color: rgba(251, 207, 232, 0.6); }
+        .highlight-purple { background-color: rgba(221, 214, 254, 0.6); }
+        .highlight-orange { background-color: rgba(253, 186, 116, 0.6); }
+
+        .dark .highlight-yellow { background-color: rgba(254, 240, 138, 0.3); }
+        .dark .highlight-green { background-color: rgba(187, 247, 208, 0.3); }
+        .dark .highlight-blue { background-color: rgba(191, 219, 254, 0.3); }
+        .dark .highlight-pink { background-color: rgba(251, 207, 232, 0.3); }
+        .dark .highlight-purple { background-color: rgba(221, 214, 254, 0.3); }
+        .dark .highlight-orange { background-color: rgba(253, 186, 116, 0.3); }
+
+        /* Popup menu */
+        .highlight-popup {
+            position: absolute;
+            z-index: 50;
+            background: white;
+            border: 1px solid rgb(229, 231, 235);
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            min-width: 280px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .dark .highlight-popup {
+            background: rgb(17, 24, 39);
+            border-color: rgb(75, 85, 99);
+        }
+
+        .color-pills {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .color-pill {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .color-pill:hover,
+        .color-pill.selected {
+            border-color: #3b82f6;
+            transform: scale(1.1);
+        }
+
+        .color-pill.yellow { background-color: rgb(254, 240, 138); }
+        .color-pill.green { background-color: rgb(187, 247, 208); }
+        .color-pill.blue { background-color: rgb(191, 219, 254); }
+        .color-pill.pink { background-color: rgb(251, 207, 232); }
+        .color-pill.purple { background-color: rgb(221, 214, 254); }
+        .color-pill.orange { background-color: rgb(253, 186, 116); }
+
+        .popup-comment {
+            font-size: 14px;
+            color: rgb(75, 85, 99);
+            margin-bottom: 8px;
+            max-height: 60px;
+            overflow-y: auto;
+        }
+
+        .dark .popup-comment {
+            color: rgb(156, 163, 175);
+        }
+
+        .popup-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .popup-button {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .edit-button {
+            background: rgb(59, 130, 246);
+            color: white;
+        }
+
+        .edit-button:hover {
+            background: rgb(37, 99, 235);
+        }
+
+        .delete-button {
+            background: rgb(239, 68, 68);
+            color: white;
+        }
+
+        .delete-button:hover {
+            background: rgb(220, 38, 38);
+        }
+
+        .comment-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid rgb(209, 213, 219);
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            color: rgb(17, 24, 39);
+        }
+
+        .dark .comment-input {
+            background: rgb(31, 41, 55);
+            border-color: rgb(75, 85, 99);
+            color: rgb(243, 244, 246);
+        }
     </style>
 </head>
 <body class="bg-white dark:bg-true-black text-gray-900 dark:text-white min-h-screen transition-colors duration-200">
@@ -89,7 +225,488 @@
         </div>
     </div>
 
+    <!-- Highlight popup menu -->
+    <div id="highlightPopup" class="highlight-popup" style="display: none;">
+        <div class="color-pills">
+            <div class="color-pill yellow" data-color="yellow"></div>
+            <div class="color-pill green" data-color="green"></div>
+            <div class="color-pill blue" data-color="blue"></div>
+            <div class="color-pill pink" data-color="pink"></div>
+            <div class="color-pill purple" data-color="purple"></div>
+            <div class="color-pill orange" data-color="orange"></div>
+        </div>
+        <div class="popup-comment" id="highlightComment">Click edit to add a comment</div>
+        <div class="popup-controls">
+            <button class="popup-button edit-button" id="editCommentBtn">Edit</button>
+            <button class="popup-button delete-button" id="deleteHighlightBtn">Delete</button>
+        </div>
+    </div>
+
 <script>
+class HighlightManager {
+    constructor(bookReader) {
+        this.bookReader = bookReader;
+        this.highlights = new Map(); // pageNum -> highlights array
+        this.selectedHighlight = null;
+        this.popup = document.getElementById('highlightPopup');
+        this.lastTap = 0;
+        this.tapTimeout = 300; // Double-tap detection window
+        this.isEditingComment = false;
+        
+        this.setupEventListeners();
+        this.loadHighlights();
+    }
+
+    setupEventListeners() {
+        // Touch events for selection
+        document.addEventListener('touchend', (e) => this.handleTouch(e));
+        document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        
+        // Popup controls
+        document.getElementById('editCommentBtn').addEventListener('click', () => this.editComment());
+        document.getElementById('deleteHighlightBtn').addEventListener('click', () => this.deleteHighlight());
+        
+        // Color pills
+        document.querySelectorAll('.color-pill').forEach(pill => {
+            pill.addEventListener('click', (e) => this.changeHighlightColor(e.target.dataset.color));
+        });
+        
+        // Hide popup when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (!this.popup.contains(e.target) && !e.target.closest('.text-highlight')) {
+                this.hidePopup();
+            }
+        });
+        
+        // Handle selection changes
+        document.addEventListener('selectionchange', () => this.handleSelectionChange());
+    }
+
+    handleTouch(e) {
+        const now = Date.now();
+        const isDoubleTap = (now - this.lastTap) < this.tapTimeout;
+        this.lastTap = now;
+
+        if (isDoubleTap) {
+            e.preventDefault();
+            this.handleDoubleTap(e);
+        }
+    }
+
+    handleMouseUp(e) {
+        // For desktop testing - treat as double-click
+        if (e.detail === 2) {
+            this.handleDoubleTap(e);
+        }
+    }
+
+    handleDoubleTap(e) {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+
+        const range = selection.getRangeAt(0);
+        if (range.collapsed) {
+            // Select word at tap location
+            this.selectWordAtPoint(e.touches ? e.touches[0] : e);
+        } else {
+            // Create highlight from current selection
+            this.createHighlightFromSelection();
+        }
+    }
+
+    selectWordAtPoint(point) {
+        const element = document.elementFromPoint(point.clientX, point.clientY);
+        if (!element || !this.isInBookContent(element)) return;
+
+        const selection = window.getSelection();
+        const range = document.createRange();
+        
+        // Find word boundaries
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let textNode = walker.nextNode();
+        while (textNode) {
+            const rect = this.getTextNodeRect(textNode, point);
+            if (rect) {
+                const text = textNode.textContent;
+                const offset = this.getCharOffsetAtPoint(textNode, point);
+                const { start, end } = this.getWordBoundaries(text, offset);
+                
+                range.setStart(textNode, start);
+                range.setEnd(textNode, end);
+                
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return;
+            }
+            textNode = walker.nextNode();
+        }
+    }
+
+    getTextNodeRect(textNode, point) {
+        const range = document.createRange();
+        range.selectNodeContents(textNode);
+        const rect = range.getBoundingClientRect();
+        
+        if (point.clientX >= rect.left && point.clientX <= rect.right &&
+            point.clientY >= rect.top && point.clientY <= rect.bottom) {
+            return rect;
+        }
+        return null;
+    }
+
+    getCharOffsetAtPoint(textNode, point) {
+        const text = textNode.textContent;
+        const range = document.createRange();
+        
+        for (let i = 0; i < text.length; i++) {
+            range.setStart(textNode, i);
+            range.setEnd(textNode, i + 1);
+            const rect = range.getBoundingClientRect();
+            
+            if (point.clientX >= rect.left && point.clientX <= rect.right) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    getWordBoundaries(text, offset) {
+        const wordRegex = /\w/;
+        let start = offset;
+        let end = offset;
+
+        // Find start of word
+        while (start > 0 && wordRegex.test(text[start - 1])) {
+            start--;
+        }
+
+        // Find end of word
+        while (end < text.length && wordRegex.test(text[end])) {
+            end++;
+        }
+
+        return { start, end };
+    }
+
+    handleSelectionChange() {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0 || selection.isCollapsed) {
+            return;
+        }
+
+        // Check if selection is in book content
+        const range = selection.getRangeAt(0);
+        if (!this.isInBookContent(range.commonAncestorContainer)) {
+            return;
+        }
+
+        // Show selection handles (you can implement visual feedback here)
+    }
+
+    createHighlightFromSelection() {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0 || selection.isCollapsed) return;
+
+        const range = selection.getRangeAt(0);
+        if (!this.isInBookContent(range.commonAncestorContainer)) return;
+
+        const highlightId = this.generateHighlightId();
+        const highlightData = {
+            id: highlightId,
+            pageNum: this.bookReader.currentPage,
+            color: 'yellow',
+            comment: '',
+            range: this.serializeRange(range),
+            text: range.toString()
+        };
+
+        this.addHighlight(highlightData);
+        this.renderHighlight(highlightData, range);
+        this.showPopup(highlightData);
+        
+        selection.removeAllRanges();
+    }
+
+    addHighlight(highlightData) {
+        const pageNum = highlightData.pageNum;
+        if (!this.highlights.has(pageNum)) {
+            this.highlights.set(pageNum, []);
+        }
+        this.highlights.get(pageNum).push(highlightData);
+        this.saveHighlights();
+    }
+
+    renderHighlight(highlightData, range) {
+        const span = document.createElement('span');
+        span.className = `text-highlight highlight-${highlightData.color}`;
+        span.dataset.highlightId = highlightData.id;
+        span.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.selectHighlight(highlightData);
+        });
+
+        try {
+            range.surroundContents(span);
+        } catch (e) {
+            // Handle complex selections
+            const contents = range.extractContents();
+            span.appendChild(contents);
+            range.insertNode(span);
+        }
+    }
+
+    selectHighlight(highlightData) {
+        // Clear previous selection
+        document.querySelectorAll('.text-highlight.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+
+        // Select this highlight
+        const element = document.querySelector(`[data-highlight-id="${highlightData.id}"]`);
+        if (element) {
+            element.classList.add('selected');
+            this.selectedHighlight = highlightData;
+            this.showPopup(highlightData);
+        }
+    }
+
+    showPopup(highlightData) {
+        const element = document.querySelector(`[data-highlight-id="${highlightData.id}"]`);
+        if (!element) return;
+
+        const rect = element.getBoundingClientRect();
+        const popup = this.popup;
+
+        // Update popup content
+        document.getElementById('highlightComment').textContent = 
+            highlightData.comment || 'Click edit to add a comment';
+        
+        // Update color pill selection
+        document.querySelectorAll('.color-pill').forEach(pill => {
+            pill.classList.toggle('selected', pill.dataset.color === highlightData.color);
+        });
+
+        // Position popup above the highlight
+        popup.style.display = 'block';
+        const popupRect = popup.getBoundingClientRect();
+        
+        popup.style.left = Math.max(10, rect.left - (popupRect.width / 2) + (rect.width / 2)) + 'px';
+        popup.style.top = (rect.top - popupRect.height - 10) + 'px';
+
+        // Adjust if popup goes off-screen
+        if (parseInt(popup.style.top) < 10) {
+            popup.style.top = (rect.bottom + 10) + 'px';
+        }
+    }
+
+    hidePopup() {
+        this.popup.style.display = 'none';
+        this.selectedHighlight = null;
+        this.isEditingComment = false;
+        
+        // Clear selection
+        document.querySelectorAll('.text-highlight.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+    }
+
+    editComment() {
+        if (!this.selectedHighlight) return;
+
+        const commentDiv = document.getElementById('highlightComment');
+        if (this.isEditingComment) {
+            // Save comment
+            const input = commentDiv.querySelector('input');
+            if (input) {
+                this.selectedHighlight.comment = input.value;
+                commentDiv.innerHTML = this.selectedHighlight.comment || 'Click edit to add a comment';
+                this.saveHighlights();
+            }
+            this.isEditingComment = false;
+            document.getElementById('editCommentBtn').textContent = 'Edit';
+        } else {
+            // Show input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'comment-input';
+            input.value = this.selectedHighlight.comment || '';
+            input.placeholder = 'Add a comment...';
+            
+            commentDiv.innerHTML = '';
+            commentDiv.appendChild(input);
+            input.focus();
+            
+            this.isEditingComment = true;
+            document.getElementById('editCommentBtn').textContent = 'Save';
+        }
+    }
+
+    changeHighlightColor(color) {
+        if (!this.selectedHighlight) return;
+
+        const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
+        if (element) {
+            // Remove old color class
+            element.className = element.className.replace(/highlight-\w+/, '');
+            // Add new color class
+            element.classList.add(`highlight-${color}`);
+            
+            this.selectedHighlight.color = color;
+            this.saveHighlights();
+            
+            // Update pill selection
+            document.querySelectorAll('.color-pill').forEach(pill => {
+                pill.classList.toggle('selected', pill.dataset.color === color);
+            });
+        }
+    }
+
+    deleteHighlight() {
+        if (!this.selectedHighlight) return;
+
+        const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
+        if (element) {
+            // Replace highlight span with its text content
+            const parent = element.parentNode;
+            parent.replaceChild(document.createTextNode(element.textContent), element);
+            parent.normalize(); // Merge adjacent text nodes
+        }
+
+        // Remove from data
+        const pageHighlights = this.highlights.get(this.selectedHighlight.pageNum);
+        if (pageHighlights) {
+            const index = pageHighlights.findIndex(h => h.id === this.selectedHighlight.id);
+            if (index !== -1) {
+                pageHighlights.splice(index, 1);
+            }
+        }
+
+        this.saveHighlights();
+        this.hidePopup();
+    }
+
+    restoreHighlights() {
+        const pageHighlights = this.highlights.get(this.bookReader.currentPage);
+        if (!pageHighlights) return;
+
+        pageHighlights.forEach(highlightData => {
+            try {
+                const range = this.deserializeRange(highlightData.range);
+                if (range) {
+                    this.renderHighlight(highlightData, range);
+                }
+            } catch (e) {
+                console.warn('Failed to restore highlight:', e);
+            }
+        });
+    }
+
+    serializeRange(range) {
+        // Simple serialization - in production, you'd want more robust range serialization
+        return {
+            startContainerPath: this.getNodePath(range.startContainer),
+            startOffset: range.startOffset,
+            endContainerPath: this.getNodePath(range.endContainer),
+            endOffset: range.endOffset
+        };
+    }
+
+    deserializeRange(rangeData) {
+        try {
+            const startContainer = this.getNodeByPath(rangeData.startContainerPath);
+            const endContainer = this.getNodeByPath(rangeData.endContainerPath);
+            
+            if (!startContainer || !endContainer) return null;
+
+            const range = document.createRange();
+            range.setStart(startContainer, rangeData.startOffset);
+            range.setEnd(endContainer, rangeData.endOffset);
+            return range;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    getNodePath(node) {
+        const path = [];
+        const bookContent = document.getElementById('bookContent');
+        
+        while (node && node !== bookContent) {
+            const parent = node.parentNode;
+            if (parent) {
+                const index = Array.from(parent.childNodes).indexOf(node);
+                path.unshift(index);
+            }
+            node = parent;
+        }
+        return path;
+    }
+
+    getNodeByPath(path) {
+        let node = document.getElementById('bookContent');
+        for (const index of path) {
+            if (node && node.childNodes[index]) {
+                node = node.childNodes[index];
+            } else {
+                return null;
+            }
+        }
+        return node;
+    }
+
+    isInBookContent(node) {
+        const bookContent = document.getElementById('bookContent');
+        while (node) {
+            if (node === bookContent) return true;
+            node = node.parentNode;
+        }
+        return false;
+    }
+
+    generateHighlightId() {
+        return 'highlight_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    saveHighlights() {
+        if (!this.bookReader.currentFile?.name) return;
+        
+        const bookName = this.bookReader.currentFile.name.replace(/\.html$/, '');
+        const highlightsData = {};
+        
+        this.highlights.forEach((highlights, pageNum) => {
+            highlightsData[pageNum] = highlights;
+        });
+        
+        localStorage.setItem(`highlights_${bookName}`, JSON.stringify(highlightsData));
+    }
+
+    loadHighlights() {
+        if (!this.bookReader.currentFile?.name) return;
+        
+        const bookName = this.bookReader.currentFile.name.replace(/\.html$/, '');
+        const saved = localStorage.getItem(`highlights_${bookName}`);
+        
+        if (saved) {
+            try {
+                const highlightsData = JSON.parse(saved);
+                this.highlights.clear();
+                
+                Object.entries(highlightsData).forEach(([pageNum, highlights]) => {
+                    this.highlights.set(parseInt(pageNum), highlights);
+                });
+            } catch (e) {
+                console.warn('Failed to load highlights:', e);
+            }
+        }
+    }
+}
+
 class BookReader {
     constructor() {
         this.currentFile = null;
@@ -100,6 +717,7 @@ class BookReader {
         this.setupEventListeners();
         this.setupIntersectionObserver();
         this.initializeTheme();
+        this.highlightManager = new HighlightManager(this);
     }
 
     initializeTheme() {
@@ -230,6 +848,8 @@ class BookReader {
             this.currentPage = metadata.lastPage || 0;
             
             this.updateDisplay();
+            this.highlightManager.loadHighlights();
+            this.highlightManager.restoreHighlights();
             this.scrollToTop();
         } catch (error) {
             alert('Error reading file: ' + error.message);
@@ -425,6 +1045,11 @@ class BookReader {
         document.getElementById('tocSelect').value = this.currentPage;
         
         this.saveCurrentState();
+
+        // Restore highlights after page change
+        setTimeout(() => {
+            this.highlightManager.restoreHighlights();
+        }, 50);
     }
 }
 
