@@ -60,9 +60,12 @@
             border-left-color: rgba(147, 197, 253, 0.7) !important;
         }
 
-        /* Enhanced drag handles for resizing - highly visible and touch-friendly */
+        /* Enhanced drag handles - now with dynamic colors */
         .text-highlight.selected {
             position: relative;
+            --handle-color: #3b82f6;
+            --handle-color-dark: #1d4ed8;
+            --handle-border: #ffffff;
         }
 
         .text-highlight.selected .resize-handle-left,
@@ -71,14 +74,14 @@
             top: -2px;
             bottom: -2px;
             width: 20px;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            background: linear-gradient(135deg, var(--handle-color) 0%, var(--handle-color-dark) 100%);
             opacity: 1;
             cursor: ew-resize;
             z-index: 200;
             border-radius: 10px;
-            border: 3px solid #ffffff;
+            border: 3px solid var(--handle-border);
             box-shadow: 
-                0 4px 12px rgba(59, 130, 246, 0.4),
+                0 4px 12px rgba(0, 0, 0, 0.3),
                 0 2px 4px rgba(0, 0, 0, 0.2);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             
@@ -107,31 +110,10 @@
         .text-highlight.selected .resize-handle-right:hover,
         .text-highlight.selected .resize-handle-left:active,
         .text-highlight.selected .resize-handle-right:active {
-            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
             transform: scale(1.15);
             box-shadow: 
-                0 6px 16px rgba(59, 130, 246, 0.6),
+                0 6px 16px rgba(0, 0, 0, 0.4),
                 0 4px 8px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Dark mode handles - bright and visible */
-        .dark .text-highlight.selected .resize-handle-left,
-        .dark .text-highlight.selected .resize-handle-right {
-            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-            border-color: #1f2937;
-            box-shadow: 
-                0 4px 12px rgba(96, 165, 250, 0.5),
-                0 2px 4px rgba(0, 0, 0, 0.4);
-        }
-
-        .dark .text-highlight.selected .resize-handle-left:hover,
-        .dark .text-highlight.selected .resize-handle-right:hover,
-        .dark .text-highlight.selected .resize-handle-left:active,
-        .dark .text-highlight.selected .resize-handle-right:active {
-            background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
-            box-shadow: 
-                0 6px 16px rgba(147, 197, 253, 0.6),
-                0 4px 8px rgba(0, 0, 0, 0.5);
         }
 
         /* Enhanced touch targets for mobile/tablet */
@@ -154,13 +136,30 @@
             }
         }
 
-        /* Add visual feedback during dragging */
+        /* Visual feedback during dragging */
         .text-highlight.selected.dragging .resize-handle-left,
         .text-highlight.selected.dragging .resize-handle-right {
             transform: scale(1.2);
             box-shadow: 
-                0 8px 20px rgba(59, 130, 246, 0.7),
+                0 8px 20px rgba(0, 0, 0, 0.5),
                 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Drag preview overlay */
+        .drag-preview-overlay {
+            position: absolute;
+            pointer-events: none;
+            z-index: 150;
+            background: rgba(59, 130, 246, 0.2);
+            border: 2px dashed rgba(59, 130, 246, 0.6);
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            transform: translateZ(0); /* Force GPU acceleration */
+        }
+
+        .drag-preview-overlay.visible {
+            opacity: 1;
         }
 
         /* Light mode highlight colors - solid but subtle */
@@ -474,10 +473,26 @@ class HighlightManager {
         this.popup = document.getElementById('highlightPopup');
         this.isEditingComment = false;
         this.currentLineHighlight = null;
+        
+        // Enhanced drag state management
         this.isResizing = false;
         this.resizeHandle = null;
         this.resizingHighlight = null;
+        this.isDragPreview = false;
+        this.dragPreviewElement = null;
         
+        // Touch gesture recognition
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.hasMoved = false;
+        this.dragThreshold = 15; // pixels before starting drag
+        this.dragStarted = false;
+        
+        // Performance optimization
+        this.rafId = null;
+        this.pendingUpdate = false;
+        
+        // Tap handling
         this.lastTapTime = 0;
         this.tapDelay = 300;
         this.singleTapTimer = null;
@@ -486,11 +501,6 @@ class HighlightManager {
         this.capturedSectionId = null;
         this.capturedStartChar = null;
         this.capturedEndChar = null;
-        
-        // Touch tracking
-        this.touchStartX = 0;
-        this.touchStartY = 0;
-        this.hasMoved = false;
         
         this.handleClick = this.handleClick.bind(this);
         this.handleMouseDown = this.handleMouseDown.bind(this);
@@ -528,6 +538,67 @@ class HighlightManager {
         document.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
 
         this.addContentEventListeners();
+    }
+
+    // RAF throttling utility
+    throttleWithRAF(callback) {
+        if (this.pendingUpdate) return;
+        
+        this.pendingUpdate = true;
+        this.rafId = requestAnimationFrame(() => {
+            callback();
+            this.pendingUpdate = false;
+        });
+    }
+
+    // Get color values for dynamic handle styling
+    getHighlightColor(element) {
+        const computedStyle = window.getComputedStyle(element);
+        const bgColor = computedStyle.backgroundColor;
+        
+        // Parse RGB values
+        const rgb = bgColor.match(/\d+/g);
+        if (!rgb || rgb.length < 3) {
+            return { r: 59, g: 130, b: 246 }; // fallback blue
+        }
+        
+        return {
+            r: parseInt(rgb[0]),
+            g: parseInt(rgb[1]),
+            b: parseInt(rgb[2])
+        };
+    }
+
+    // Apply dynamic colors to handles
+    updateHandleColors(element, colorName) {
+        const colorMap = {
+            yellow: { r: 217, g: 166, b: 7 },
+            green: { r: 22, g: 101, b: 52 },
+            blue: { r: 59, g: 130, b: 246 },
+            pink: { r: 190, g: 24, b: 93 },
+            purple: { r: 107, g: 33, b: 168 },
+            orange: { r: 194, g: 65, b: 12 }
+        };
+
+        const isDark = document.documentElement.classList.contains('dark');
+        let color = colorMap[colorName] || colorMap.blue;
+        
+        // Adjust for dark mode
+        if (isDark) {
+            color = {
+                r: Math.min(255, color.r + 50),
+                g: Math.min(255, color.g + 50),
+                b: Math.min(255, color.b + 50)
+            };
+        }
+
+        const handleColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+        const handleColorDark = `rgb(${Math.max(0, color.r - 30)}, ${Math.max(0, color.g - 30)}, ${Math.max(0, color.b - 30)})`;
+        const borderColor = isDark ? '#1f2937' : '#ffffff';
+
+        element.style.setProperty('--handle-color', handleColor);
+        element.style.setProperty('--handle-color-dark', handleColorDark);
+        element.style.setProperty('--handle-border', borderColor);
     }
 
     updateColorPillColors() {
@@ -569,6 +640,136 @@ class HighlightManager {
         return { x: e.clientX, y: e.clientY };
     }
 
+    // Create drag preview overlay
+    createDragPreview() {
+        if (this.dragPreviewElement) {
+            this.dragPreviewElement.remove();
+        }
+        
+        const preview = document.createElement('div');
+        preview.className = 'drag-preview-overlay';
+        document.body.appendChild(preview);
+        this.dragPreviewElement = preview;
+        
+        return preview;
+    }
+
+    // Start visual drag preview
+    startDragPreview() {
+        if (this.isDragPreview || !this.resizingHighlight) return;
+        
+        this.isDragPreview = true;
+        this.dragStarted = true;
+        
+        // Add visual feedback to the highlight
+        this.resizingHighlight.classList.add('dragging');
+        
+        // Create preview overlay
+        this.createDragPreview();
+        
+        // Prevent document interaction
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
+        document.body.style.touchAction = 'none';
+    }
+
+    // Update drag preview with RAF throttling
+    updateDragPreview(coords) {
+        if (!this.isDragPreview || !this.dragPreviewElement) return;
+        
+        this.throttleWithRAF(() => {
+            // Update preview position based on coordinates
+            // This is just visual feedback - no DOM text manipulation
+            const rect = this.resizingHighlight.getBoundingClientRect();
+            const preview = this.dragPreviewElement;
+            
+            let newRect = { ...rect };
+            
+            if (this.resizeHandle === 'left') {
+                newRect.left = Math.min(coords.x, rect.right - 20);
+                newRect.width = rect.right - newRect.left;
+            } else {
+                newRect.width = Math.max(20, coords.x - rect.left);
+            }
+            
+            // Apply visual changes
+            preview.style.left = newRect.left + 'px';
+            preview.style.top = newRect.top + 'px';
+            preview.style.width = newRect.width + 'px';
+            preview.style.height = newRect.height + 'px';
+            preview.classList.add('visible');
+        });
+    }
+
+    // Commit drag changes (only on touch end)
+    commitDragChanges(coords) {
+        if (!this.selectedHighlight || !this.resizingHighlight) return;
+
+        const textNode = this.getTextNodeAtPoint(coords.x, coords.y);
+        if (!textNode) return;
+
+        const offset = this.getOffsetInTextNode(textNode, coords.x, coords.y);
+        
+        try {
+            const section = document.getElementById(this.capturedSectionId);
+            if (!section) return;
+            
+            const clickPosition = this.getCharPositionInSection(section, textNode, offset);
+            if (clickPosition === -1) return;
+            
+            let newStart, newEnd;
+            
+            if (this.resizeHandle === 'left') {
+                newStart = clickPosition;
+                newEnd = this.capturedEndChar;
+            } else {
+                newStart = this.capturedStartChar;
+                newEnd = clickPosition;
+            }
+            
+            if (newStart >= newEnd) return; // Invalid range
+            
+            const sectionText = section.textContent;
+            const newText = sectionText.substring(newStart, newEnd);
+            if (!newText.trim()) return;
+            
+            // Remove old highlight
+            const parent = this.resizingHighlight.parentNode;
+            if (parent) {
+                parent.replaceChild(document.createTextNode(this.resizingHighlight.textContent), this.resizingHighlight);
+                parent.normalize();
+            }
+            
+            // Create new highlight
+            const newRange = this.createRangeFromCharPositions(section, newStart, newEnd);
+            if (!newRange) return;
+            
+            const span = document.createElement('span');
+            span.className = `text-highlight highlight-${this.selectedHighlight.color} selected`;
+            span.dataset.highlightId = this.selectedHighlight.id;
+            
+            try {
+                newRange.surroundContents(span);
+            } catch (e) {
+                // Silently ignore surroundContents errors
+            }
+            
+            // Update stored data
+            this.selectedHighlight.startChar = newStart;
+            this.selectedHighlight.endChar = newEnd;
+            this.selectedHighlight.text = newText;
+            
+            this.resizingHighlight = span;
+            setTimeout(() => {
+                this.addSmartResizeHandles(span);
+                this.updateHandleColors(span, this.selectedHighlight.color);
+            }, 10);
+            
+        } catch (err) {
+            console.warn('Resize failed:', err);
+        }
+    }
+
     handleTouchStart(e) {
         // Check if this is a resize handle touch
         if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
@@ -579,6 +780,7 @@ class HighlightManager {
             this.touchStartX = coords.x;
             this.touchStartY = coords.y;
             this.hasMoved = false;
+            this.dragStarted = false;
             
             this.isResizing = true;
             this.resizeHandle = e.target.classList.contains('resize-handle-left') ? 'left' : 'right';
@@ -589,19 +791,11 @@ class HighlightManager {
                 return;
             }
             
-            // Add dragging visual feedback
-            this.resizingHighlight.classList.add('dragging');
-            
             // Capture current highlight position data
             const highlightData = this.selectedHighlight;
             this.capturedSectionId = highlightData.sectionId;
             this.capturedStartChar = highlightData.startChar;
             this.capturedEndChar = highlightData.endChar;
-            
-            // Prevent document scrolling and selection
-            document.body.style.userSelect = 'none';
-            document.body.style.webkitUserSelect = 'none';
-            document.body.style.touchAction = 'none';
             
             return;
         }
@@ -614,14 +808,20 @@ class HighlightManager {
             
             const coords = this.getEventCoordinates(e);
             
-            // Track movement to distinguish from taps
+            // Check if we've moved beyond threshold
             const deltaX = Math.abs(coords.x - this.touchStartX);
             const deltaY = Math.abs(coords.y - this.touchStartY);
-            if (deltaX > 5 || deltaY > 5) {
-                this.hasMoved = true;
+            const totalMovement = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            if (totalMovement > this.dragThreshold && !this.dragStarted) {
+                this.startDragPreview();
             }
             
-            this.updateHighlightSelectionWithCoords(coords.x, coords.y);
+            if (this.isDragPreview) {
+                this.updateDragPreview(coords);
+            }
+            
+            this.hasMoved = totalMovement > 5;
         }
     }
 
@@ -630,14 +830,28 @@ class HighlightManager {
             e.preventDefault();
             e.stopPropagation();
             
+            // Clean up drag preview
+            if (this.isDragPreview && this.dragPreviewElement) {
+                this.dragPreviewElement.remove();
+                this.dragPreviewElement = null;
+                this.isDragPreview = false;
+            }
+            
             // Remove dragging visual feedback
             if (this.resizingHighlight) {
                 this.resizingHighlight.classList.remove('dragging');
             }
             
+            // Commit changes if we actually dragged
+            if (this.dragStarted && this.hasMoved) {
+                const coords = this.getEventCoordinates(e);
+                this.commitDragChanges(coords);
+            }
+            
             this.isResizing = false;
             this.resizeHandle = null;
             this.resizingHighlight = null;
+            this.dragStarted = false;
             
             // Clean up captured data
             this.capturedSectionId = null;
@@ -684,7 +898,7 @@ class HighlightManager {
             e.stopPropagation();
             
             const coords = this.getEventCoordinates(e);
-            this.updateHighlightSelectionWithCoords(coords.x, coords.y);
+            this.commitDragChanges(coords);
         } else {
             if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
                 document.body.style.cursor = 'ew-resize';
@@ -714,71 +928,6 @@ class HighlightManager {
             document.body.style.userSelect = '';
             
             this.saveHighlights();
-        }
-    }
-
-    updateHighlightSelectionWithCoords(x, y) {
-        if (!this.selectedHighlight || !this.resizingHighlight) return;
-
-        const textNode = this.getTextNodeAtPoint(x, y);
-        if (!textNode) return;
-
-        const offset = this.getOffsetInTextNode(textNode, x, y);
-        
-        try {
-            const section = document.getElementById(this.capturedSectionId);
-            if (!section) return;
-            
-            const clickPosition = this.getCharPositionInSection(section, textNode, offset);
-            if (clickPosition === -1) return;
-            
-            let newStart, newEnd;
-            
-            if (this.resizeHandle === 'left') {
-                newStart = clickPosition;
-                newEnd = this.capturedEndChar;
-            } else {
-                newStart = this.capturedStartChar;
-                newEnd = clickPosition;
-            }
-            
-            if (newStart >= newEnd) return; // Invalid range
-            
-            const sectionText = section.textContent;
-            const newText = sectionText.substring(newStart, newEnd);
-            if (!newText.trim()) return;
-            
-            // Remove old highlight
-            const parent = this.resizingHighlight.parentNode;
-            if (parent) {
-                parent.replaceChild(document.createTextNode(this.resizingHighlight.textContent), this.resizingHighlight);
-                parent.normalize();
-            }
-            
-            // Create new highlight
-            const newRange = this.createRangeFromCharPositions(section, newStart, newEnd);
-            if (!newRange) return;
-            
-            const span = document.createElement('span');
-            span.className = `text-highlight highlight-${this.selectedHighlight.color} selected dragging`;
-            span.dataset.highlightId = this.selectedHighlight.id;
-            
-            try {
-                newRange.surroundContents(span);
-            } catch (e) {
-                // Silently ignore surroundContents errors
-            }
-            
-            // Update stored data
-            this.selectedHighlight.startChar = newStart;
-            this.selectedHighlight.endChar = newEnd;
-            this.selectedHighlight.text = newText;
-            
-            this.resizingHighlight = span;
-            setTimeout(() => this.addSmartResizeHandles(span), 10);
-            
-        } catch (err) {
-            console.warn('Resize failed:', err);
         }
     }
 
@@ -1100,7 +1249,7 @@ class HighlightManager {
             range.surroundContents(span);
             this.addHighlight(highlightData);
             
-            // Immediately select the new highlight - this was the key fix
+            // Immediately select the new highlight
             setTimeout(() => {
                 this.selectHighlight(highlightData);
             }, 50);
@@ -1212,6 +1361,7 @@ class HighlightManager {
             element.classList.add('selected');
             this.selectedHighlight = highlightData;
             this.addSmartResizeHandles(element);
+            this.updateHandleColors(element, highlightData.color);
             this.showPopup(highlightData);
         }
     }
@@ -1386,6 +1536,9 @@ class HighlightManager {
             element.classList.add(`highlight-${color}`);
             
             this.selectedHighlight.color = color;
+            
+            // Update handle colors to match new highlight color
+            this.updateHandleColors(element, color);
             
             document.querySelectorAll('[data-color]').forEach(pill => {
                 const isSelected = pill.dataset.color === color;
