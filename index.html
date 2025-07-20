@@ -60,7 +60,7 @@
             border-left-color: rgba(147, 197, 253, 0.7) !important;
         }
 
-        /* Drag handles for resizing - always visible when selected */
+        /* Enhanced drag handles for resizing - highly visible and touch-friendly */
         .text-highlight.selected {
             position: relative;
         }
@@ -68,62 +68,99 @@
         .text-highlight.selected .resize-handle-left,
         .text-highlight.selected .resize-handle-right {
             position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 12px; /* Slightly wider for easier touch */
-            background: rgba(59, 130, 246, 0.8); /* Blue color, always visible */
-            opacity: 1; /* Always fully visible */
+            top: -2px;
+            bottom: -2px;
+            width: 20px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            opacity: 1;
             cursor: ew-resize;
-            z-index: 100;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add shadow for better visibility */
-            transition: all 0.2s ease;
+            z-index: 200;
+            border-radius: 10px;
+            border: 3px solid #ffffff;
+            box-shadow: 
+                0 4px 12px rgba(59, 130, 246, 0.4),
+                0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* Essential touch properties for iPad */
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            
+            /* Touch-friendly minimum size */
+            min-width: 20px;
+            min-height: 20px;
         }
 
         .text-highlight.selected .resize-handle-left {
-            left: -6px; /* Adjusted for wider handle */
+            left: -10px;
         }
 
         .text-highlight.selected .resize-handle-right {
-            right: -6px; /* Adjusted for wider handle */
+            right: -10px;
         }
 
-        /* Hover effects for desktop (still nice to have) */
+        /* Enhanced hover and active states */
         .text-highlight.selected .resize-handle-left:hover,
-        .text-highlight.selected .resize-handle-right:hover {
-            background: rgba(59, 130, 246, 1);
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        .text-highlight.selected .resize-handle-right:hover,
+        .text-highlight.selected .resize-handle-left:active,
+        .text-highlight.selected .resize-handle-right:active {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            transform: scale(1.15);
+            box-shadow: 
+                0 6px 16px rgba(59, 130, 246, 0.6),
+                0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
-        /* Dark mode handles */
+        /* Dark mode handles - bright and visible */
         .dark .text-highlight.selected .resize-handle-left,
         .dark .text-highlight.selected .resize-handle-right {
-            background: rgba(147, 197, 253, 0.8);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            border-color: #1f2937;
+            box-shadow: 
+                0 4px 12px rgba(96, 165, 250, 0.5),
+                0 2px 4px rgba(0, 0, 0, 0.4);
         }
 
         .dark .text-highlight.selected .resize-handle-left:hover,
-        .dark .text-highlight.selected .resize-handle-right:hover {
-            background: rgba(147, 197, 253, 1);
-            box-shadow: 0 4px 8px rgba(147, 197, 253, 0.3);
+        .dark .text-highlight.selected .resize-handle-right:hover,
+        .dark .text-highlight.selected .resize-handle-left:active,
+        .dark .text-highlight.selected .resize-handle-right:active {
+            background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
+            box-shadow: 
+                0 6px 16px rgba(147, 197, 253, 0.6),
+                0 4px 8px rgba(0, 0, 0, 0.5);
         }
 
-        /* Make handles more touch-friendly on smaller screens */
-        @media (max-width: 768px) {
+        /* Enhanced touch targets for mobile/tablet */
+        @media (max-width: 1024px) {
             .text-highlight.selected .resize-handle-left,
             .text-highlight.selected .resize-handle-right {
-                width: 16px; /* Even wider on mobile */
-                border-radius: 8px;
+                width: 24px;
+                min-width: 24px;
+                border-radius: 12px;
+                top: -4px;
+                bottom: -4px;
             }
             
             .text-highlight.selected .resize-handle-left {
-                left: -8px;
+                left: -12px;
             }
             
             .text-highlight.selected .resize-handle-right {
-                right: -8px;
+                right: -12px;
             }
+        }
+
+        /* Add visual feedback during dragging */
+        .text-highlight.selected.dragging .resize-handle-left,
+        .text-highlight.selected.dragging .resize-handle-right {
+            transform: scale(1.2);
+            box-shadow: 
+                0 8px 20px rgba(59, 130, 246, 0.7),
+                0 4px 12px rgba(0, 0, 0, 0.4);
         }
 
         /* Light mode highlight colors - solid but subtle */
@@ -439,6 +476,7 @@ class HighlightManager {
         this.currentLineHighlight = null;
         this.isResizing = false;
         this.resizeHandle = null;
+        this.resizingHighlight = null;
         
         this.lastTapTime = 0;
         this.tapDelay = 300;
@@ -448,6 +486,11 @@ class HighlightManager {
         this.capturedSectionId = null;
         this.capturedStartChar = null;
         this.capturedEndChar = null;
+        
+        // Touch tracking
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.hasMoved = false;
         
         this.handleClick = this.handleClick.bind(this);
         this.handleMouseDown = this.handleMouseDown.bind(this);
@@ -478,10 +521,11 @@ class HighlightManager {
         document.addEventListener('mousemove', this.handleMouseMove);
         document.addEventListener('mouseup', this.handleMouseUp);
         
-        // Touch events
-        document.addEventListener('touchstart', this.handleTouchStart.bind(this));
-        document.addEventListener('touchmove', this.handleTouchMove.bind(this));
-        document.addEventListener('touchend', this.handleTouchEnd.bind(this));
+        // Touch events with explicit passive: false for proper drag handling
+        document.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        document.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        document.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
 
         this.addContentEventListeners();
     }
@@ -513,22 +557,40 @@ class HighlightManager {
     }
 
     getEventCoordinates(e) {
+        // Handle touch events more robustly
         if (e.touches && e.touches.length > 0) {
             return { x: e.touches[0].clientX, y: e.touches[0].clientY };
         }
+        // Handle touchend events that might not have touches
+        if (e.changedTouches && e.changedTouches.length > 0) {
+            return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        }
+        // Mouse events
         return { x: e.clientX, y: e.clientY };
     }
 
     handleTouchStart(e) {
+        // Check if this is a resize handle touch
         if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
             e.preventDefault();
             e.stopPropagation();
+            
+            const coords = this.getEventCoordinates(e);
+            this.touchStartX = coords.x;
+            this.touchStartY = coords.y;
+            this.hasMoved = false;
             
             this.isResizing = true;
             this.resizeHandle = e.target.classList.contains('resize-handle-left') ? 'left' : 'right';
             this.resizingHighlight = e.target.closest('.text-highlight.selected');
             
-            if (!this.resizingHighlight) return;
+            if (!this.resizingHighlight) {
+                this.isResizing = false;
+                return;
+            }
+            
+            // Add dragging visual feedback
+            this.resizingHighlight.classList.add('dragging');
             
             // Capture current highlight position data
             const highlightData = this.selectedHighlight;
@@ -536,10 +598,12 @@ class HighlightManager {
             this.capturedStartChar = highlightData.startChar;
             this.capturedEndChar = highlightData.endChar;
             
+            // Prevent document scrolling and selection
             document.body.style.userSelect = 'none';
+            document.body.style.webkitUserSelect = 'none';
+            document.body.style.touchAction = 'none';
             
-            // Prevent scrolling during resize
-            document.body.style.overflow = 'hidden';
+            return;
         }
     }
 
@@ -549,12 +613,28 @@ class HighlightManager {
             e.stopPropagation();
             
             const coords = this.getEventCoordinates(e);
+            
+            // Track movement to distinguish from taps
+            const deltaX = Math.abs(coords.x - this.touchStartX);
+            const deltaY = Math.abs(coords.y - this.touchStartY);
+            if (deltaX > 5 || deltaY > 5) {
+                this.hasMoved = true;
+            }
+            
             this.updateHighlightSelectionWithCoords(coords.x, coords.y);
         }
     }
 
     handleTouchEnd(e) {
         if (this.isResizing) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Remove dragging visual feedback
+            if (this.resizingHighlight) {
+                this.resizingHighlight.classList.remove('dragging');
+            }
+            
             this.isResizing = false;
             this.resizeHandle = null;
             this.resizingHighlight = null;
@@ -564,9 +644,10 @@ class HighlightManager {
             this.capturedStartChar = null;
             this.capturedEndChar = null;
             
-            document.body.style.cursor = '';
+            // Restore document interaction
             document.body.style.userSelect = '';
-            document.body.style.overflow = '';
+            document.body.style.webkitUserSelect = '';
+            document.body.style.touchAction = '';
             
             this.saveHighlights();
         }
@@ -582,6 +663,9 @@ class HighlightManager {
             this.resizingHighlight = e.target.closest('.text-highlight.selected');
             
             if (!this.resizingHighlight) return;
+            
+            // Add dragging visual feedback
+            this.resizingHighlight.classList.add('dragging');
             
             // Capture current highlight position data
             const highlightData = this.selectedHighlight;
@@ -612,6 +696,11 @@ class HighlightManager {
 
     handleMouseUp(e) {
         if (this.isResizing) {
+            // Remove dragging visual feedback
+            if (this.resizingHighlight) {
+                this.resizingHighlight.classList.remove('dragging');
+            }
+            
             this.isResizing = false;
             this.resizeHandle = null;
             this.resizingHighlight = null;
@@ -671,7 +760,7 @@ class HighlightManager {
             if (!newRange) return;
             
             const span = document.createElement('span');
-            span.className = `text-highlight highlight-${this.selectedHighlight.color} selected`;
+            span.className = `text-highlight highlight-${this.selectedHighlight.color} selected dragging`;
             span.dataset.highlightId = this.selectedHighlight.id;
             
             try {
@@ -691,11 +780,6 @@ class HighlightManager {
         } catch (err) {
             console.warn('Resize failed:', err);
         }
-    }
-
-    updateHighlightSelection(e) {
-        const coords = this.getEventCoordinates(e);
-        this.updateHighlightSelectionWithCoords(coords.x, coords.y);
     }
 
     handleClick(e) {
@@ -1016,9 +1100,10 @@ class HighlightManager {
             range.surroundContents(span);
             this.addHighlight(highlightData);
             
+            // Immediately select the new highlight - this was the key fix
             setTimeout(() => {
                 this.selectHighlight(highlightData);
-            }, 10);
+            }, 50);
             
         } catch (e) {
             console.warn('Could not create highlight:', e);
