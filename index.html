@@ -443,9 +443,15 @@ class HighlightManager {
             }
         });
 
+        // Mouse events
         document.addEventListener('mousedown', this.handleMouseDown);
         document.addEventListener('mousemove', this.handleMouseMove);
         document.addEventListener('mouseup', this.handleMouseUp);
+        
+        // Touch events
+        document.addEventListener('touchstart', this.handleTouchStart.bind(this));
+        document.addEventListener('touchmove', this.handleTouchMove.bind(this));
+        document.addEventListener('touchend', this.handleTouchEnd.bind(this));
 
         this.addContentEventListeners();
     }
@@ -476,6 +482,66 @@ class HighlightManager {
         bookContent.addEventListener('click', this.handleClick);
     }
 
+    getEventCoordinates(e) {
+        if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    handleTouchStart(e) {
+        if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            this.isResizing = true;
+            this.resizeHandle = e.target.classList.contains('resize-handle-left') ? 'left' : 'right';
+            this.resizingHighlight = e.target.closest('.text-highlight.selected');
+            
+            if (!this.resizingHighlight) return;
+            
+            // Capture current highlight position data
+            const highlightData = this.selectedHighlight;
+            this.capturedSectionId = highlightData.sectionId;
+            this.capturedStartChar = highlightData.startChar;
+            this.capturedEndChar = highlightData.endChar;
+            
+            document.body.style.userSelect = 'none';
+            
+            // Prevent scrolling during resize
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    handleTouchMove(e) {
+        if (this.isResizing && this.resizingHighlight) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const coords = this.getEventCoordinates(e);
+            this.updateHighlightSelectionWithCoords(coords.x, coords.y);
+        }
+    }
+
+    handleTouchEnd(e) {
+        if (this.isResizing) {
+            this.isResizing = false;
+            this.resizeHandle = null;
+            this.resizingHighlight = null;
+            
+            // Clean up captured data
+            this.capturedSectionId = null;
+            this.capturedStartChar = null;
+            this.capturedEndChar = null;
+            
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.body.style.overflow = '';
+            
+            this.saveHighlights();
+        }
+    }
+
     handleMouseDown(e) {
         if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
             e.preventDefault();
@@ -502,7 +568,9 @@ class HighlightManager {
         if (this.isResizing && this.resizingHighlight) {
             e.preventDefault();
             e.stopPropagation();
-            this.updateHighlightSelection(e);
+            
+            const coords = this.getEventCoordinates(e);
+            this.updateHighlightSelectionWithCoords(coords.x, coords.y);
         } else {
             if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
                 document.body.style.cursor = 'ew-resize';
@@ -530,13 +598,13 @@ class HighlightManager {
         }
     }
 
-    updateHighlightSelection(e) {
+    updateHighlightSelectionWithCoords(x, y) {
         if (!this.selectedHighlight || !this.resizingHighlight) return;
 
-        const textNode = this.getTextNodeAtPoint(e.clientX, e.clientY);
+        const textNode = this.getTextNodeAtPoint(x, y);
         if (!textNode) return;
 
-        const offset = this.getOffsetInTextNode(textNode, e.clientX, e.clientY);
+        const offset = this.getOffsetInTextNode(textNode, x, y);
         
         try {
             const section = document.getElementById(this.capturedSectionId);
@@ -575,7 +643,12 @@ class HighlightManager {
             const span = document.createElement('span');
             span.className = `text-highlight highlight-${this.selectedHighlight.color} selected`;
             span.dataset.highlightId = this.selectedHighlight.id;
-            newRange.surroundContents(span);
+            
+            try {
+                newRange.surroundContents(span);
+            } catch (e) {
+                // Silently ignore surroundContents errors
+            }
             
             // Update stored data
             this.selectedHighlight.startChar = newStart;
@@ -588,6 +661,11 @@ class HighlightManager {
         } catch (err) {
             console.warn('Resize failed:', err);
         }
+    }
+
+    updateHighlightSelection(e) {
+        const coords = this.getEventCoordinates(e);
+        this.updateHighlightSelectionWithCoords(coords.x, coords.y);
     }
 
     handleClick(e) {
@@ -1258,7 +1336,11 @@ class HighlightManager {
                 span.className = `text-highlight highlight-${highlightData.color}`;
                 span.dataset.highlightId = highlightData.id;
                 
-                range.surroundContents(span);
+                try {
+                    range.surroundContents(span);
+                } catch (e) {
+                    // Silently ignore surroundContents errors
+                }
                 
             } catch (e) {
                 console.warn(`Failed to restore highlight ${highlightData.id}:`, e);
@@ -1343,57 +1425,6 @@ class HighlightManager {
         } catch (e) {
             console.warn('Failed to load highlights:', e);
         }
-    }
-
-    getNodePath(node) {
-        // For line markers, we'll use section + character position instead
-        const section = this.findContainingSection(node);
-        if (!section || !section.id) return null;
-        
-        const charPosition = this.getCharPositionInSection(section, node, 0);
-        return {
-            sectionId: section.id,
-            charPosition: charPosition
-        };
-    }
-
-    getNodeByPath(pathData) {
-        // Convert the old path format back to a node for line marker restoration
-        if (!pathData || !pathData.sectionId) return null;
-        
-        const section = document.getElementById(pathData.sectionId);
-        if (!section) return null;
-        
-        // If we have a character position, find the node at that position
-        if (pathData.charPosition !== undefined) {
-            return this.getNodeAtCharPosition(section, pathData.charPosition);
-        }
-        
-        // Fallback to section element
-        return section;
-    }
-
-    getNodeAtCharPosition(section, charPosition) {
-        const walker = document.createTreeWalker(
-            section,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
-        
-        let currentPos = 0;
-        let textNode;
-        
-        while (textNode = walker.nextNode()) {
-            const nodeLength = textNode.textContent.length;
-            if (currentPos + nodeLength >= charPosition) {
-                return textNode;
-            }
-            currentPos += nodeLength;
-        }
-        
-        // Fallback to section if position not found
-        return section;
     }
 }
 
@@ -1556,8 +1587,7 @@ class BookReader {
             const section = this.highlightManager.findContainingSection(this.highlightManager.currentLineHighlight);
             if (section && section.id) {
                 lineMarkerPath = {
-                    sectionId: section.id,
-                    elementTag: this.highlightManager.currentLineHighlight.tagName
+                    sectionId: section.id
                 };
             }
         }
@@ -1640,7 +1670,6 @@ class BookReader {
             
             const section = document.getElementById(lineMarkerPath.sectionId);
             if (section) {
-                // For line markers, just restore to the section element
                 section.classList.add('line-highlight');
                 this.highlightManager.currentLineHighlight = section;
             }
