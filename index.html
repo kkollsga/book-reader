@@ -41,64 +41,127 @@
             color: inherit !important;
         }
 
-        /* Line highlighting */
+        /* Line highlighting for reading progress */
         .line-highlight {
             position: relative;
+            background: linear-gradient(90deg, 
+                rgba(59, 130, 246, 0.15) 0%, 
+                rgba(59, 130, 246, 0.08) 100%) !important;
+            border-left: 3px solid rgba(59, 130, 246, 0.6) !important;
+            padding-left: 8px !important;
+            margin-left: -11px !important;
+            z-index: 5 !important;
         }
 
-        .line-highlight::before,
-        .line-highlight::after {
-            content: '';
-            position: absolute;
-            left: -20px;
-            right: -20px;
-            height: 1px;
-            background: rgba(59, 130, 246, 0.4);
-            transition: opacity 0.2s ease;
+        .dark .line-highlight {
+            background: linear-gradient(90deg, 
+                rgba(147, 197, 253, 0.2) 0%, 
+                rgba(147, 197, 253, 0.1) 100%) !important;
+            border-left-color: rgba(147, 197, 253, 0.7) !important;
         }
 
-        .line-highlight::before {
-            top: -2px;
-        }
-
-        .line-highlight::after {
-            bottom: -2px;
-        }
-
-        .dark .line-highlight::before,
-        .dark .line-highlight::after {
-            background: rgba(147, 197, 253, 0.4);
-        }
-
-        /* Text highlights */
+        /* Text highlights - solid but faint colors */
         .text-highlight {
             padding: 2px 4px;
-            border-radius: 6px;
+            border-radius: 4px;
             position: relative;
             cursor: pointer;
             transition: all 0.2s ease;
+            user-select: none;
         }
 
+        /* Drag handles for resizing - only on edge lines */
         .text-highlight.selected {
-            outline: 2px solid #3b82f6;
-            outline-offset: 1px;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            position: relative;
         }
 
-        /* Highlight colors */
-        .highlight-yellow { background-color: rgba(254, 240, 138, 0.6); }
-        .highlight-green { background-color: rgba(187, 247, 208, 0.6); }
-        .highlight-blue { background-color: rgba(191, 219, 254, 0.6); }
-        .highlight-pink { background-color: rgba(251, 207, 232, 0.6); }
-        .highlight-purple { background-color: rgba(221, 214, 254, 0.6); }
-        .highlight-orange { background-color: rgba(253, 186, 116, 0.6); }
+        .text-highlight.selected .resize-handle-left,
+        .text-highlight.selected .resize-handle-right {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            background: currentColor;
+            opacity: 0.6;
+            cursor: ew-resize;
+            z-index: 100;
+            border-radius: 4px;
+        }
 
-        .dark .highlight-yellow { background-color: rgba(254, 240, 138, 0.3); }
-        .dark .highlight-green { background-color: rgba(187, 247, 208, 0.3); }
-        .dark .highlight-blue { background-color: rgba(191, 219, 254, 0.3); }
-        .dark .highlight-pink { background-color: rgba(251, 207, 232, 0.3); }
-        .dark .highlight-purple { background-color: rgba(221, 214, 254, 0.3); }
-        .dark .highlight-orange { background-color: rgba(253, 186, 116, 0.3); }
+        .text-highlight.selected .resize-handle-left {
+            left: -4px;
+        }
+
+        .text-highlight.selected .resize-handle-right {
+            right: -4px;
+        }
+
+        /* Light mode highlight colors - solid but subtle */
+        .highlight-yellow { 
+            background-color: #fef3c7 !important; 
+            color: #92400e !important;
+        }
+        .highlight-green { 
+            background-color: #d1fae5 !important; 
+            color: #065f46 !important;
+        }
+        .highlight-blue { 
+            background-color: #dbeafe !important; 
+            color: #1e40af !important;
+        }
+        .highlight-pink { 
+            background-color: #fce7f3 !important; 
+            color: #be185d !important;
+        }
+        .highlight-purple { 
+            background-color: #e9d5ff !important; 
+            color: #7c2d12 !important;
+        }
+        .highlight-orange { 
+            background-color: #fed7aa !important; 
+            color: #c2410c !important;
+        }
+
+        /* Dark mode highlight colors - muted but visible */
+        .dark .highlight-yellow { 
+            background-color: #451a03 !important; 
+            color: #fbbf24 !important;
+        }
+        .dark .highlight-green { 
+            background-color: #064e3b !important; 
+            color: #34d399 !important;
+        }
+        .dark .highlight-blue { 
+            background-color: #1e3a8a !important; 
+            color: #60a5fa !important;
+        }
+        .dark .highlight-pink { 
+            background-color: #831843 !important; 
+            color: #f472b6 !important;
+        }
+        .dark .highlight-purple { 
+            background-color: #581c87 !important; 
+            color: #c084fc !important;
+        }
+        .dark .highlight-orange { 
+            background-color: #9a3412 !important; 
+            color: #fb923c !important;
+        }
+
+        /* Enhanced selection styling that matches the highlight color */
+        .text-highlight.selected {
+            box-shadow: 
+                0 0 0 2px currentColor,
+                0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: scale(1.02);
+            z-index: 10;
+        }
+
+        .dark .text-highlight.selected {
+            box-shadow: 
+                0 0 0 2px currentColor,
+                0 4px 12px rgba(255, 255, 255, 0.1);
+        }
 
         /* Popup menu */
         .highlight-popup {
@@ -117,6 +180,7 @@
             transform: translateY(-10px);
             opacity: 0;
             transition: all 0.2s ease;
+            display: none;
         }
 
         .highlight-popup.show {
@@ -129,10 +193,38 @@
             border-color: rgb(75, 85, 99);
         }
 
+        .popup-header {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgb(239, 68, 68);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .popup-close:hover {
+            background: rgb(220, 38, 38);
+            transform: scale(1.1);
+        }
+
         .color-pills {
             display: flex;
             gap: 10px;
-            margin-bottom: 12px;
             justify-content: center;
         }
 
@@ -157,101 +249,79 @@
             box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
         }
 
-        .color-pill.yellow { background-color: rgb(254, 240, 138); }
-        .color-pill.green { background-color: rgb(187, 247, 208); }
-        .color-pill.blue { background-color: rgb(191, 219, 254); }
-        .color-pill.pink { background-color: rgb(251, 207, 232); }
-        .color-pill.purple { background-color: rgb(221, 214, 254); }
-        .color-pill.orange { background-color: rgb(253, 186, 116); }
+        .color-pill.yellow { background-color: #fef3c7; }
+        .color-pill.green { background-color: #d1fae5; }
+        .color-pill.blue { background-color: #dbeafe; }
+        .color-pill.pink { background-color: #fce7f3; }
+        .color-pill.purple { background-color: #e9d5ff; }
+        .color-pill.orange { background-color: #fed7aa; }
 
         .popup-comment {
             font-size: 14px;
             color: rgb(75, 85, 99);
-            margin-bottom: 12px;
-            max-height: 80px;
-            overflow-y: auto;
-            padding: 8px;
-            background: rgb(249, 250, 251);
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: transparent;
+            border: 2px dashed rgba(156, 163, 175, 0.3);
             border-radius: 6px;
             min-height: 40px;
-            display: flex;
-            align-items: center;
+            cursor: text;
+            transition: all 0.2s ease;
+            line-height: 1.4;
+        }
+
+        .popup-comment:hover {
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .popup-comment.editing {
+            border-style: solid;
+            border-color: rgb(59, 130, 246);
+            background: rgb(249, 250, 251);
         }
 
         .dark .popup-comment {
             color: rgb(156, 163, 175);
+            border-color: rgba(156, 163, 175, 0.3);
+        }
+
+        .dark .popup-comment:hover {
+            border-color: rgba(147, 197, 253, 0.5);
+        }
+
+        .dark .popup-comment.editing {
+            border-color: rgb(147, 197, 253);
             background: rgb(31, 41, 55);
-        }
-
-        .popup-controls {
-            display: flex;
-            gap: 10px;
-            justify-content: space-between;
-        }
-
-        .popup-button {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s ease;
-            flex: 1;
-        }
-
-        .edit-button {
-            background: rgb(59, 130, 246);
-            color: white;
-        }
-
-        .edit-button:hover {
-            background: rgb(37, 99, 235);
-            transform: translateY(-1px);
-        }
-
-        .delete-button {
-            background: rgb(239, 68, 68);
-            color: white;
-        }
-
-        .delete-button:hover {
-            background: rgb(220, 38, 38);
-            transform: translateY(-1px);
         }
 
         .comment-input {
             width: 100%;
-            padding: 8px 12px;
-            border: 2px solid rgb(209, 213, 219);
-            border-radius: 6px;
+            background: transparent;
+            border: none;
+            outline: none;
             font-size: 14px;
-            background: white;
-            color: rgb(17, 24, 39);
-            transition: border-color 0.2s ease;
+            color: inherit;
+            font-family: inherit;
+            line-height: inherit;
+            resize: none;
+            overflow: hidden;
+        }
+
+        .comment-input::placeholder {
+            color: rgba(156, 163, 175, 0.6);
+            font-style: italic;
+        }
+
+        .dark .comment-input::placeholder {
+            color: rgba(156, 163, 175, 0.5);
         }
 
         .comment-input:focus {
-            outline: none;
-            border-color: rgb(59, 130, 246);
-        }
-
-        .dark .comment-input {
-            background: rgb(31, 41, 55);
-            border-color: rgb(75, 85, 99);
-            color: rgb(243, 244, 246);
+            caret-color: rgb(59, 130, 246);
         }
 
         .dark .comment-input:focus {
-            border-color: rgb(147, 197, 253);
-        }
-
-        /* Prevent text selection during highlighting operations */
-        .no-select {
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
+            caret-color: rgb(147, 197, 253);
         }
     </style>
 </head>
@@ -304,18 +374,27 @@
 
     <!-- Highlight popup menu -->
     <div id="highlightPopup" class="highlight-popup">
-        <div class="color-pills">
-            <div class="color-pill yellow" data-color="yellow"></div>
-            <div class="color-pill green" data-color="green"></div>
-            <div class="color-pill blue" data-color="blue"></div>
-            <div class="color-pill pink" data-color="pink"></div>
-            <div class="color-pill purple" data-color="purple"></div>
-            <div class="color-pill orange" data-color="orange"></div>
+        <div class="relative mb-3">
+            <button class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white border-0 cursor-pointer flex items-center justify-center text-xs transition-all duration-200 shadow-sm hover:bg-red-600 hover:scale-110" id="deleteHighlightBtn">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="flex gap-2.5 justify-center">
+                <div class="w-7 h-7 rounded-full border-3 border-transparent cursor-pointer transition-all duration-200 shadow-sm hover:border-blue-500 hover:scale-110" 
+                     data-color="yellow" id="pill-yellow"></div>
+                <div class="w-7 h-7 rounded-full border-3 border-transparent cursor-pointer transition-all duration-200 shadow-sm hover:border-blue-500 hover:scale-110" 
+                     data-color="green" id="pill-green"></div>
+                <div class="w-7 h-7 rounded-full border-3 border-transparent cursor-pointer transition-all duration-200 shadow-sm hover:border-blue-500 hover:scale-110" 
+                     data-color="blue" id="pill-blue"></div>
+                <div class="w-7 h-7 rounded-full border-3 border-transparent cursor-pointer transition-all duration-200 shadow-sm hover:border-blue-500 hover:scale-110" 
+                     data-color="pink" id="pill-pink"></div>
+                <div class="w-7 h-7 rounded-full border-3 border-transparent cursor-pointer transition-all duration-200 shadow-sm hover:border-blue-500 hover:scale-110" 
+                     data-color="purple" id="pill-purple"></div>
+                <div class="w-7 h-7 rounded-full border-3 border-transparent cursor-pointer transition-all duration-200 shadow-sm hover:border-blue-500 hover:scale-110" 
+                     data-color="orange" id="pill-orange"></div>
+            </div>
         </div>
-        <div class="popup-comment" id="highlightComment">Click edit to add a comment</div>
-        <div class="popup-controls">
-            <button class="popup-button edit-button" id="editCommentBtn">Edit</button>
-            <button class="popup-button delete-button" id="deleteHighlightBtn">Delete</button>
+        <div class="popup-comment" id="highlightComment">
+            <textarea class="comment-input" placeholder="Tap to add a comment..." rows="1"></textarea>
         </div>
     </div>
 
@@ -323,216 +402,327 @@
 class HighlightManager {
     constructor(bookReader) {
         this.bookReader = bookReader;
-        this.highlights = new Map(); // pageNum -> highlights array
+        this.highlights = new Map();
         this.selectedHighlight = null;
         this.popup = document.getElementById('highlightPopup');
         this.isEditingComment = false;
         this.currentLineHighlight = null;
+        this.isResizing = false;
+        this.resizeHandle = null;
         
-        // Touch handling
-        this.touchStartTime = 0;
-        this.touchStartPos = null;
         this.lastTapTime = 0;
         this.tapDelay = 300;
+        this.singleTapTimer = null;
+        
+        // Resize capture data
+        this.capturedSectionId = null;
+        this.capturedStartChar = null;
+        this.capturedEndChar = null;
+        
+        this.handleClick = this.handleClick.bind(this);
+        this.handleMouseDown = this.handleMouseDown.bind(this);
+        this.handleMouseMove = this.handleMouseMove.bind(this);
+        this.handleMouseUp = this.handleMouseUp.bind(this);
         
         this.setupEventListeners();
         this.loadHighlights();
+        this.updateColorPillColors();
     }
 
     setupEventListeners() {
-        const bookContent = document.getElementById('bookContent');
-        
-        // Touch events for selection and line highlighting
-        bookContent.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: true });
-        bookContent.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-        
-        // Mouse events for desktop testing
-        bookContent.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        bookContent.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        
-        // Popup controls
-        document.getElementById('editCommentBtn').addEventListener('click', () => this.editComment());
         document.getElementById('deleteHighlightBtn').addEventListener('click', () => this.deleteHighlight());
+        document.getElementById('highlightComment').addEventListener('click', () => this.startEditing());
         
-        // Color pills
-        document.querySelectorAll('.color-pill').forEach(pill => {
+        document.querySelectorAll('[data-color]').forEach(pill => {
             pill.addEventListener('click', (e) => this.changeHighlightColor(e.target.dataset.color));
         });
         
-        // Hide popup when clicking elsewhere
         document.addEventListener('click', (e) => {
             if (!this.popup.contains(e.target) && !e.target.closest('.text-highlight')) {
                 this.hidePopup();
             }
         });
-        
-        // Handle text selection changes
-        document.addEventListener('selectionchange', () => this.handleSelectionChange());
+
+        document.addEventListener('mousedown', this.handleMouseDown);
+        document.addEventListener('mousemove', this.handleMouseMove);
+        document.addEventListener('mouseup', this.handleMouseUp);
+
+        this.addContentEventListeners();
     }
 
-    handleTouchStart(e) {
-        if (e.target.closest('.text-highlight')) return; // Don't interfere with existing highlights
+    updateColorPillColors() {
+        const isDark = document.documentElement.classList.contains('dark');
         
-        this.touchStartTime = Date.now();
-        this.touchStartPos = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY
+        const colors = {
+            yellow: isDark ? '#a16207' : '#fef08a',
+            green: isDark ? '#166534' : '#86efac', 
+            blue: isDark ? '#0c4a6e' : '#7dd3fc',
+            pink: isDark ? '#be185d' : '#f9a8d4',
+            purple: isDark ? '#6b21a8' : '#c4b5fd',
+            orange: isDark ? '#c2410c' : '#fdba74'
         };
+        
+        Object.entries(colors).forEach(([color, bgColor]) => {
+            const pill = document.getElementById(`pill-${color}`);
+            if (pill) {
+                pill.style.backgroundColor = bgColor;
+            }
+        });
     }
 
-    handleTouchEnd(e) {
-        if (e.target.closest('.text-highlight')) return;
-        
-        const touchDuration = Date.now() - this.touchStartTime;
-        const currentTime = Date.now();
-        const timeSinceLastTap = currentTime - this.lastTapTime;
-        
-        // Check if this was a quick tap (not a long press or scroll)
-        if (touchDuration < 200 && this.touchStartPos) {
-            const endPos = e.changedTouches[0];
-            const distance = Math.sqrt(
-                Math.pow(endPos.clientX - this.touchStartPos.x, 2) + 
-                Math.pow(endPos.clientY - this.touchStartPos.y, 2)
-            );
-            
-            // If touch didn't move much, it's a tap
-            if (distance < 10) {
-                if (timeSinceLastTap < this.tapDelay) {
-                    // Double tap - create highlight
-                    e.preventDefault();
-                    this.handleDoubleTap(e.changedTouches[0]);
-                } else {
-                    // Single tap - line highlight
-                    this.handleSingleTap(e.changedTouches[0]);
-                }
-                this.lastTapTime = currentTime;
-            }
-        }
+    addContentEventListeners() {
+        const bookContent = document.getElementById('bookContent');
+        bookContent.removeEventListener('click', this.handleClick);
+        bookContent.addEventListener('click', this.handleClick);
     }
 
     handleMouseDown(e) {
-        if (e.target.closest('.text-highlight')) return;
-        this.touchStartTime = Date.now();
-        this.touchStartPos = { x: e.clientX, y: e.clientY };
+        if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            this.isResizing = true;
+            this.resizeHandle = e.target.classList.contains('resize-handle-left') ? 'left' : 'right';
+            this.resizingHighlight = e.target.closest('.text-highlight.selected');
+            
+            if (!this.resizingHighlight) return;
+            
+            // Capture current highlight position data
+            const highlightData = this.selectedHighlight;
+            this.capturedSectionId = highlightData.sectionId;
+            this.capturedStartChar = highlightData.startChar;
+            this.capturedEndChar = highlightData.endChar;
+            
+            document.body.style.cursor = 'ew-resize';
+            document.body.style.userSelect = 'none';
+        }
+    }
+
+    handleMouseMove(e) {
+        if (this.isResizing && this.resizingHighlight) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.updateHighlightSelection(e);
+        } else {
+            if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
+                document.body.style.cursor = 'ew-resize';
+            } else if (!this.isResizing) {
+                document.body.style.cursor = '';
+            }
+        }
     }
 
     handleMouseUp(e) {
-        if (e.target.closest('.text-highlight')) return;
-        
-        const clickDuration = Date.now() - this.touchStartTime;
-        
-        if (clickDuration < 200 && this.touchStartPos) {
-            const distance = Math.sqrt(
-                Math.pow(e.clientX - this.touchStartPos.x, 2) + 
-                Math.pow(e.clientY - this.touchStartPos.y, 2)
-            );
+        if (this.isResizing) {
+            this.isResizing = false;
+            this.resizeHandle = null;
+            this.resizingHighlight = null;
             
-            if (distance < 10) {
-                if (e.detail === 1) {
-                    // Single click - line highlight
-                    this.handleSingleTap(e);
-                } else if (e.detail === 2) {
-                    // Double click - create highlight
-                    e.preventDefault();
-                    this.handleDoubleTap(e);
-                }
-            }
+            // Clean up captured data
+            this.capturedSectionId = null;
+            this.capturedStartChar = null;
+            this.capturedEndChar = null;
+            
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            this.saveHighlights();
         }
     }
 
-    handleSingleTap(point) {
-        const element = document.elementFromPoint(point.clientX, point.clientY);
-        if (!element || !this.isInBookContent(element)) return;
+    updateHighlightSelection(e) {
+        if (!this.selectedHighlight || !this.resizingHighlight) return;
+
+        const textNode = this.getTextNodeAtPoint(e.clientX, e.clientY);
+        if (!textNode) return;
+
+        const offset = this.getOffsetInTextNode(textNode, e.clientX, e.clientY);
         
-        // Find the line element (p, div, etc.)
-        let lineElement = element;
-        while (lineElement && lineElement.parentNode !== document.getElementById('bookContent')) {
-            if (lineElement.matches('p, div, h1, h2, h3, h4, h5, h6, li, blockquote')) {
-                break;
+        try {
+            const section = document.getElementById(this.capturedSectionId);
+            if (!section) return;
+            
+            const clickPosition = this.getCharPositionInSection(section, textNode, offset);
+            if (clickPosition === -1) return;
+            
+            let newStart, newEnd;
+            
+            if (this.resizeHandle === 'left') {
+                newStart = clickPosition;
+                newEnd = this.capturedEndChar;
+            } else {
+                newStart = this.capturedStartChar;
+                newEnd = clickPosition;
             }
-            lineElement = lineElement.parentNode;
+            
+            if (newStart >= newEnd) return; // Invalid range
+            
+            const sectionText = section.textContent;
+            const newText = sectionText.substring(newStart, newEnd);
+            if (!newText.trim()) return;
+            
+            // Remove old highlight
+            const parent = this.resizingHighlight.parentNode;
+            if (parent) {
+                parent.replaceChild(document.createTextNode(this.resizingHighlight.textContent), this.resizingHighlight);
+                parent.normalize();
+            }
+            
+            // Create new highlight
+            const newRange = this.createRangeFromCharPositions(section, newStart, newEnd);
+            if (!newRange) return;
+            
+            const span = document.createElement('span');
+            span.className = `text-highlight highlight-${this.selectedHighlight.color} selected`;
+            span.dataset.highlightId = this.selectedHighlight.id;
+            newRange.surroundContents(span);
+            
+            // Update stored data
+            this.selectedHighlight.startChar = newStart;
+            this.selectedHighlight.endChar = newEnd;
+            this.selectedHighlight.text = newText;
+            
+            this.resizingHighlight = span;
+            setTimeout(() => this.addSmartResizeHandles(span), 10);
+            
+        } catch (err) {
+            console.warn('Resize failed:', err);
         }
+    }
+
+    handleClick(e) {
+        if (e.target.closest('.text-highlight')) {
+            const highlightElement = e.target.closest('.text-highlight');
+            const highlightId = highlightElement.dataset.highlightId;
+            const highlightData = this.findHighlightById(highlightId);
+            if (highlightData) {
+                this.selectHighlight(highlightData);
+            }
+            return;
+        }
+
+        if (!this.isInBookContent(e.target)) return;
+
+        const now = Date.now();
+        const timeSinceLastTap = now - this.lastTapTime;
+
+        if (timeSinceLastTap < this.tapDelay) {
+            if (this.singleTapTimer) {
+                clearTimeout(this.singleTapTimer);
+                this.singleTapTimer = null;
+            }
+            this.handleDoubleClick(e);
+        } else {
+            this.singleTapTimer = setTimeout(() => {
+                this.handleSingleClick(e);
+                this.singleTapTimer = null;
+            }, this.tapDelay);
+        }
+
+        this.lastTapTime = now;
+    }
+
+    handleSingleClick(e) {
+        const elementAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+        this.addLineHighlight(elementAtPoint || e.target);
+    }
+
+    handleDoubleClick(e) {
+        e.preventDefault();
+        window.getSelection().removeAllRanges();
         
+        const range = this.selectWordAtPoint(e);
+        if (range) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            setTimeout(() => {
+                this.createHighlightFromSelection();
+            }, 10);
+        }
+    }
+
+    addLineHighlight(element) {
+        let lineElement = this.findTextLine(element);
         if (!lineElement) return;
         
-        // Remove existing line highlight
         if (this.currentLineHighlight) {
             this.currentLineHighlight.classList.remove('line-highlight');
         }
         
-        // Toggle line highlight
         if (this.currentLineHighlight === lineElement) {
             this.currentLineHighlight = null;
         } else {
             lineElement.classList.add('line-highlight');
             this.currentLineHighlight = lineElement;
         }
+        
+        this.bookReader.saveCurrentState();
     }
 
-    handleDoubleTap(point) {
-        // Clear any line highlight
-        if (this.currentLineHighlight) {
-            this.currentLineHighlight.classList.remove('line-highlight');
-            this.currentLineHighlight = null;
-        }
+    findTextLine(element) {
+        let current = element;
+        let bestCandidate = null;
         
-        const selection = window.getSelection();
-        
-        // If there's already a selection, create highlight from it
-        if (selection.rangeCount > 0 && !selection.isCollapsed) {
-            this.createHighlightFromSelection();
-            return;
-        }
-        
-        // Otherwise, select word at point and create highlight
-        const range = this.selectWordAtPoint(point);
-        if (range) {
-            selection.removeAllRanges();
-            selection.addRange(range);
-            this.createHighlightFromSelection();
-        }
-    }
-
-    selectWordAtPoint(point) {
-        const element = document.elementFromPoint(point.clientX, point.clientY);
-        if (!element || !this.isInBookContent(element)) return null;
-        
-        // Find the text node
-        let textNode = element;
-        if (textNode.nodeType !== Node.TEXT_NODE) {
-            // If not a text node, find the nearest text node
-            const walker = document.createTreeWalker(
-                element,
-                NodeFilter.SHOW_TEXT,
-                null,
-                false
-            );
-            textNode = walker.nextNode();
-        }
-        
-        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return null;
-        
-        const text = textNode.textContent;
-        const range = document.createRange();
-        
-        // Create a range for each character to find which one was clicked
-        let offset = 0;
-        for (let i = 0; i < text.length; i++) {
-            range.setStart(textNode, i);
-            range.setEnd(textNode, i + 1);
-            const rect = range.getBoundingClientRect();
+        while (current && current !== document.getElementById('bookContent')) {
+            if (current.nodeType === Node.TEXT_NODE) {
+                current = current.parentElement;
+                continue;
+            }
             
-            if (point.clientX >= rect.left && point.clientX <= rect.right &&
-                point.clientY >= rect.top && point.clientY <= rect.bottom) {
-                offset = i;
+            if (current.matches && current.matches('span, a, em, strong, i, b, small, code, sup, sub')) {
+                return current;
+            }
+            
+            if (current.nodeType === Node.ELEMENT_NODE && 
+                current.textContent.trim() && 
+                current.offsetHeight > 0 && 
+                current.offsetHeight < 150) {
+                
+                if (!bestCandidate || current.offsetHeight < bestCandidate.offsetHeight) {
+                    bestCandidate = current;
+                }
+            }
+            
+            if (current.matches && current.matches('p, div, h1, h2, h3, h4, h5, h6, li, blockquote')) {
+                if (current.offsetHeight < 100) {
+                    return current;
+                }
                 break;
             }
+            
+            current = current.parentElement;
         }
         
-        // Find word boundaries
+        if (bestCandidate) {
+            return bestCandidate;
+        }
+        
+        current = element;
+        while (current && current !== document.getElementById('bookContent')) {
+            if (current.nodeType === Node.ELEMENT_NODE && current.textContent.trim()) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+        
+        return element;
+    }
+
+    selectWordAtPoint(e) {
+        const textNode = this.getTextNodeAtPoint(e.clientX, e.clientY);
+        if (!textNode) return null;
+
+        const text = textNode.textContent;
+        const offset = this.getOffsetInTextNode(textNode, e.clientX, e.clientY);
+        
+        if (offset === -1) return null;
+
         const { start, end } = this.getWordBoundaries(text, offset);
         
         if (start < end) {
+            const range = document.createRange();
             range.setStart(textNode, start);
             range.setEnd(textNode, end);
             return range;
@@ -541,39 +731,136 @@ class HighlightManager {
         return null;
     }
 
+    getTextNodeAtPoint(x, y) {
+        if (document.caretPositionFromPoint) {
+            try {
+                const position = document.caretPositionFromPoint(x, y);
+                if (position && position.offsetNode && position.offsetNode.nodeType === Node.TEXT_NODE) {
+                    return position.offsetNode;
+                }
+            } catch (e) {
+                // Fallback to other methods
+            }
+        }
+        
+        if (document.caretRangeFromPoint) {
+            try {
+                const range = document.caretRangeFromPoint(x, y);
+                if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
+                    return range.startContainer;
+                }
+            } catch (e) {
+                // Fallback to other methods
+            }
+        }
+        
+        const element = document.elementFromPoint(x, y);
+        if (!element) return null;
+        
+        if (element.classList.contains('text-highlight')) {
+            const walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            const textNode = walker.nextNode();
+            if (textNode) return textNode;
+        }
+        
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node) {
+                    return node.textContent.trim().length > 0 ? 
+                        NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                }
+            },
+            false
+        );
+        
+        let bestTextNode = null;
+        let bestDistance = Infinity;
+        let textNode;
+        
+        while (textNode = walker.nextNode()) {
+            const range = document.createRange();
+            range.selectNodeContents(textNode);
+            const rect = range.getBoundingClientRect();
+            
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+            
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestTextNode = textNode;
+            }
+        }
+        
+        return bestTextNode;
+    }
+
+    getOffsetInTextNode(textNode, x, y) {
+        const text = textNode.textContent;
+        if (!text) return 0;
+        
+        const range = document.createRange();
+        let bestOffset = 0;
+        let bestDistance = Infinity;
+        
+        for (let i = 0; i <= text.length; i++) {
+            try {
+                range.setStart(textNode, i);
+                range.setEnd(textNode, Math.min(i + 1, text.length));
+                
+                const rect = range.getBoundingClientRect();
+                if (!rect.width && !rect.height) continue;
+                
+                const charX = rect.left + rect.width / 2;
+                const charY = rect.top + rect.height / 2;
+                const distance = Math.sqrt(Math.pow(x - charX, 2) + Math.pow(y - charY, 2));
+                
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestOffset = i;
+                }
+            } catch (e) {
+                break;
+            }
+        }
+        
+        return Math.min(bestOffset, text.length);
+    }
+
     getWordBoundaries(text, offset) {
-        const wordRegex = /\w/;
+        const wordRegex = /[\w''-]/;
         let start = offset;
         let end = offset;
 
-        // Find start of word
         while (start > 0 && wordRegex.test(text[start - 1])) {
             start--;
         }
 
-        // Find end of word
         while (end < text.length && wordRegex.test(text[end])) {
             end++;
         }
 
-        // Ensure we have at least one character
-        if (start === end && end < text.length) {
-            end++;
+        if (start === end) {
+            if (offset < text.length) {
+                end = offset + 1;
+            } else if (offset > 0) {
+                start = offset - 1;
+            }
+        }
+
+        if (end - start < 1 && start > 0) {
+            start = Math.max(0, offset - 1);
+            end = Math.min(text.length, offset + 1);
         }
 
         return { start, end };
-    }
-
-    handleSelectionChange() {
-        const selection = window.getSelection();
-        if (selection.rangeCount === 0 || selection.isCollapsed) {
-            return;
-        }
-
-        const range = selection.getRangeAt(0);
-        if (!this.isInBookContent(range.commonAncestorContainer)) {
-            return;
-        }
     }
 
     createHighlightFromSelection() {
@@ -586,37 +873,128 @@ class HighlightManager {
         const text = range.toString().trim();
         if (!text) return;
 
+        // Find the section this highlight belongs to
+        const section = this.findContainingSection(range.startContainer);
+        if (!section || !section.id) {
+            console.warn('Could not find section with ID for highlight');
+            return;
+        }
+
+        const startChar = this.getCharPositionInSection(section, range.startContainer, range.startOffset);
+        const endChar = this.getCharPositionInSection(section, range.endContainer, range.endOffset);
+        
+        if (startChar === -1 || endChar === -1) {
+            console.warn('Could not calculate character positions');
+            return;
+        }
+
         const highlightId = this.generateHighlightId();
         const highlightData = {
             id: highlightId,
             pageNum: this.bookReader.currentPage,
+            sectionId: section.id,
+            startChar: startChar,
+            endChar: endChar,
             color: 'yellow',
             comment: '',
-            text: text,
-            startPath: this.getNodePath(range.startContainer),
-            startOffset: range.startOffset,
-            endPath: this.getNodePath(range.endContainer),
-            endOffset: range.endOffset
+            text: text
         };
 
-        // Create the highlight element
         const span = document.createElement('span');
         span.className = `text-highlight highlight-${highlightData.color}`;
         span.dataset.highlightId = highlightData.id;
-        span.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.selectHighlight(highlightData);
-        });
 
         try {
             range.surroundContents(span);
             this.addHighlight(highlightData);
-            this.showPopup(highlightData);
+            
+            setTimeout(() => {
+                this.selectHighlight(highlightData);
+            }, 10);
+            
         } catch (e) {
             console.warn('Could not create highlight:', e);
         }
         
         selection.removeAllRanges();
+    }
+
+    findContainingSection(node) {
+        let current = node;
+        while (current && current !== document.getElementById('bookContent')) {
+            if (current.nodeType === Node.ELEMENT_NODE && current.id) {
+                return current;
+            }
+            current = current.parentNode;
+        }
+        return null;
+    }
+
+    getCharPositionInSection(section, targetNode, targetOffset) {
+        const walker = document.createTreeWalker(
+            section,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        
+        let position = 0;
+        let textNode;
+        
+        while (textNode = walker.nextNode()) {
+            if (textNode === targetNode) {
+                return position + targetOffset;
+            }
+            position += textNode.textContent.length;
+        }
+        
+        return -1;
+    }
+
+    createRangeFromCharPositions(section, startChar, endChar) {
+        const walker = document.createTreeWalker(
+            section,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        
+        let currentPos = 0;
+        let textNode;
+        let startNode = null, startOffset = 0;
+        let endNode = null, endOffset = 0;
+        
+        while (textNode = walker.nextNode()) {
+            const nodeLength = textNode.textContent.length;
+            
+            if (!startNode && currentPos + nodeLength >= startChar) {
+                startNode = textNode;
+                startOffset = startChar - currentPos;
+            }
+            
+            if (!endNode && currentPos + nodeLength >= endChar) {
+                endNode = textNode;
+                endOffset = endChar - currentPos;
+                break;
+            }
+            
+            currentPos += nodeLength;
+        }
+        
+        if (!startNode || !endNode) return null;
+        
+        const range = document.createRange();
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        return range;
+    }
+
+    findHighlightById(highlightId) {
+        for (const [pageNum, highlights] of this.highlights) {
+            const highlight = highlights.find(h => h.id === highlightId);
+            if (highlight) return highlight;
+        }
+        return null;
     }
 
     addHighlight(highlightData) {
@@ -629,61 +1007,93 @@ class HighlightManager {
     }
 
     selectHighlight(highlightData) {
-        // Clear previous selection
         document.querySelectorAll('.text-highlight.selected').forEach(el => {
             el.classList.remove('selected');
+            el.querySelectorAll('.resize-handle-left, .resize-handle-right').forEach(handle => {
+                handle.remove();
+            });
         });
 
-        // Select this highlight
         const element = document.querySelector(`[data-highlight-id="${highlightData.id}"]`);
         if (element) {
             element.classList.add('selected');
             this.selectedHighlight = highlightData;
+            this.addSmartResizeHandles(element);
             this.showPopup(highlightData);
         }
     }
 
+    addSmartResizeHandles(element) {
+        if (!this.selectedHighlight || element.dataset.highlightId !== this.selectedHighlight.id) {
+            return;
+        }
+        
+        document.querySelectorAll(`[data-highlight-id="${element.dataset.highlightId}"]`).forEach(el => {
+            el.querySelectorAll('.resize-handle-left, .resize-handle-right').forEach(handle => {
+                handle.remove();
+            });
+        });
+        
+        const allHighlightElements = Array.from(document.querySelectorAll(`[data-highlight-id="${element.dataset.highlightId}"]`));
+        
+        if (allHighlightElements.length === 0) return;
+        
+        const firstElement = allHighlightElements[0];
+        const leftHandle = document.createElement('div');
+        leftHandle.className = 'resize-handle-left';
+        firstElement.appendChild(leftHandle);
+        
+        const lastElement = allHighlightElements[allHighlightElements.length - 1];
+        const rightHandle = document.createElement('div');
+        rightHandle.className = 'resize-handle-right';
+        lastElement.appendChild(rightHandle);
+    }
+
     showPopup(highlightData) {
         const element = document.querySelector(`[data-highlight-id="${highlightData.id}"]`);
-        if (!element) return;
+        if (!element) {
+            console.warn('Could not find highlight element for popup');
+            return;
+        }
 
         const rect = element.getBoundingClientRect();
         const popup = this.popup;
 
-        // Update popup content
         const commentDiv = document.getElementById('highlightComment');
-        commentDiv.textContent = highlightData.comment || 'Click edit to add a comment';
+        const textarea = commentDiv.querySelector('.comment-input');
         
-        // Update color pill selection
-        document.querySelectorAll('.color-pill').forEach(pill => {
-            pill.classList.toggle('selected', pill.dataset.color === highlightData.color);
+        const commentText = highlightData.comment || '';
+        textarea.value = commentText;
+        this.autoResizeTextarea(textarea);
+        
+        document.querySelectorAll('[data-color]').forEach(pill => {
+            const isSelected = pill.dataset.color === highlightData.color;
+            if (isSelected) {
+                pill.style.borderColor = '#3b82f6';
+                pill.style.transform = 'scale(1.2)';
+                pill.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
+            } else {
+                pill.style.borderColor = 'transparent';
+                pill.style.transform = 'scale(1)';
+                pill.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+            }
         });
 
-        // Position popup
         popup.style.display = 'block';
         
-        // Wait for display to take effect, then position
         requestAnimationFrame(() => {
             const popupRect = popup.getBoundingClientRect();
             
-            // Center horizontally on the highlight
             let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
-            
-            // Keep popup on screen
             left = Math.max(10, Math.min(left, window.innerWidth - popupRect.width - 10));
             
-            // Position above the highlight
             let top = rect.top - popupRect.height - 15;
-            
-            // If popup would go off top of screen, position below
             if (top < 10) {
                 top = rect.bottom + 15;
             }
             
             popup.style.left = left + 'px';
             popup.style.top = top + 'px';
-            
-            // Add show class for animation
             popup.classList.add('show');
         });
     }
@@ -692,6 +1102,17 @@ class HighlightManager {
         const popup = this.popup;
         popup.classList.remove('show');
         
+        if (this.selectedHighlight) {
+            const textarea = document.querySelector('.comment-input');
+            if (textarea) {
+                const newComment = textarea.value.trim();
+                if (this.selectedHighlight.comment !== newComment) {
+                    this.selectedHighlight.comment = newComment;
+                    this.saveHighlights();
+                }
+            }
+        }
+        
         setTimeout(() => {
             popup.style.display = 'none';
         }, 200);
@@ -699,55 +1120,68 @@ class HighlightManager {
         this.selectedHighlight = null;
         this.isEditingComment = false;
         
-        // Clear selection
         document.querySelectorAll('.text-highlight.selected').forEach(el => {
             el.classList.remove('selected');
         });
         
-        // Reset edit button
-        document.getElementById('editCommentBtn').textContent = 'Edit';
+        document.querySelectorAll('.resize-handle-left, .resize-handle-right').forEach(handle => {
+            handle.remove();
+        });
+        
+        const commentDiv = document.getElementById('highlightComment');
+        commentDiv.classList.remove('editing');
     }
 
-    editComment() {
-        if (!this.selectedHighlight) return;
-
+    startEditing() {
         const commentDiv = document.getElementById('highlightComment');
-        const editBtn = document.getElementById('editCommentBtn');
+        const textarea = commentDiv.querySelector('.comment-input');
         
-        if (this.isEditingComment) {
-            // Save comment
-            const input = commentDiv.querySelector('input');
-            if (input) {
-                this.selectedHighlight.comment = input.value.trim();
-                commentDiv.textContent = this.selectedHighlight.comment || 'Click edit to add a comment';
-                this.saveHighlights();
-            }
-            this.isEditingComment = false;
-            editBtn.textContent = 'Edit';
-        } else {
-            // Show input
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'comment-input';
-            input.value = this.selectedHighlight.comment || '';
-            input.placeholder = 'Add a comment...';
-            
-            // Handle enter key
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    this.editComment(); // This will save and exit edit mode
+        commentDiv.classList.add('editing');
+        textarea.focus();
+        
+        this.autoResizeTextarea(textarea);
+        
+        let saveTimeout;
+        const debouncedSave = () => {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                if (this.selectedHighlight) {
+                    const newComment = textarea.value.trim();
+                    if (this.selectedHighlight.comment !== newComment) {
+                        this.selectedHighlight.comment = newComment;
+                        this.saveHighlights();
+                    }
                 }
-            });
-            
-            commentDiv.innerHTML = '';
-            commentDiv.appendChild(input);
-            
-            // Focus and select text
-            setTimeout(() => input.focus(), 50);
-            
-            this.isEditingComment = true;
-            editBtn.textContent = 'Save';
-        }
+            }, 300);
+        };
+        
+        textarea.removeEventListener('input', this.commentInputHandler);
+        textarea.removeEventListener('blur', this.commentBlurHandler);
+        
+        this.commentInputHandler = () => {
+            this.autoResizeTextarea(textarea);
+            debouncedSave();
+        };
+        
+        this.commentBlurHandler = () => {
+            if (this.selectedHighlight) {
+                const newComment = textarea.value.trim();
+                if (this.selectedHighlight.comment !== newComment) {
+                    this.selectedHighlight.comment = newComment;
+                    this.saveHighlights();
+                }
+            }
+        };
+        
+        textarea.addEventListener('input', this.commentInputHandler);
+        textarea.addEventListener('blur', this.commentBlurHandler);
+    }
+
+    autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto';
+        const newHeight = Math.max(20, textarea.scrollHeight);
+        textarea.style.height = newHeight + 'px';
+        textarea.rows = Math.max(1, Math.ceil(newHeight / 20));
     }
 
     changeHighlightColor(color) {
@@ -755,18 +1189,25 @@ class HighlightManager {
 
         const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
         if (element) {
-            // Remove old color class
             element.classList.remove(`highlight-${this.selectedHighlight.color}`);
-            // Add new color class
             element.classList.add(`highlight-${color}`);
             
             this.selectedHighlight.color = color;
-            this.saveHighlights();
             
-            // Update pill selection
-            document.querySelectorAll('.color-pill').forEach(pill => {
-                pill.classList.toggle('selected', pill.dataset.color === color);
+            document.querySelectorAll('[data-color]').forEach(pill => {
+                const isSelected = pill.dataset.color === color;
+                if (isSelected) {
+                    pill.style.borderColor = '#3b82f6';
+                    pill.style.transform = 'scale(1.2)';
+                    pill.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
+                } else {
+                    pill.style.borderColor = 'transparent';
+                    pill.style.transform = 'scale(1)';
+                    pill.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                }
             });
+            
+            this.saveHighlights();
         }
     }
 
@@ -775,14 +1216,12 @@ class HighlightManager {
 
         const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
         if (element) {
-            // Replace highlight span with its text content
             const parent = element.parentNode;
             const textNode = document.createTextNode(element.textContent);
             parent.replaceChild(textNode, element);
-            parent.normalize(); // Merge adjacent text nodes
+            parent.normalize();
         }
 
-        // Remove from data
         const pageHighlights = this.highlights.get(this.selectedHighlight.pageNum);
         if (pageHighlights) {
             const index = pageHighlights.findIndex(h => h.id === this.selectedHighlight.id);
@@ -799,64 +1238,34 @@ class HighlightManager {
         const pageHighlights = this.highlights.get(this.bookReader.currentPage);
         if (!pageHighlights || pageHighlights.length === 0) return;
 
-        pageHighlights.forEach(highlightData => {
-            try {
-                const startNode = this.getNodeByPath(highlightData.startPath);
-                const endNode = this.getNodeByPath(highlightData.endPath);
-                
-                if (!startNode || !endNode) return;
+        pageHighlights.forEach((highlightData) => {
+            // Skip if highlight already exists
+            if (document.querySelector(`[data-highlight-id="${highlightData.id}"]`)) {
+                return;
+            }
 
-                const range = document.createRange();
-                range.setStart(startNode, highlightData.startOffset);
-                range.setEnd(endNode, highlightData.endOffset);
-                
-                // Verify the text matches
-                if (range.toString().trim() === highlightData.text.trim()) {
-                    const span = document.createElement('span');
-                    span.className = `text-highlight highlight-${highlightData.color}`;
-                    span.dataset.highlightId = highlightData.id;
-                    span.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.selectHighlight(highlightData);
-                    });
-                    
-                    range.surroundContents(span);
+            try {
+                const section = document.getElementById(highlightData.sectionId);
+                if (!section) {
+                    console.warn(`Section ${highlightData.sectionId} not found for highlight ${highlightData.id}`);
+                    return;
                 }
+
+                const range = this.createRangeFromCharPositions(section, highlightData.startChar, highlightData.endChar);
+                if (!range || range.collapsed) return;
+
+                const span = document.createElement('span');
+                span.className = `text-highlight highlight-${highlightData.color}`;
+                span.dataset.highlightId = highlightData.id;
+                
+                range.surroundContents(span);
+                
             } catch (e) {
-                console.warn('Failed to restore highlight:', highlightData.id, e);
+                console.warn(`Failed to restore highlight ${highlightData.id}:`, e);
             }
         });
-    }
 
-    getNodePath(node) {
-        const path = [];
-        const bookContent = document.getElementById('bookContent');
-        
-        while (node && node !== bookContent) {
-            const parent = node.parentNode;
-            if (parent) {
-                const index = Array.from(parent.childNodes).indexOf(node);
-                path.unshift({ index, nodeType: node.nodeType });
-            }
-            node = parent;
-        }
-        return path;
-    }
-
-    getNodeByPath(path) {
-        let node = document.getElementById('bookContent');
-        
-        for (const step of path) {
-            if (node && node.childNodes[step.index]) {
-                node = node.childNodes[step.index];
-                if (node.nodeType !== step.nodeType) {
-                    return null; // DOM structure has changed
-                }
-            } else {
-                return null;
-            }
-        }
-        return node;
+        this.addContentEventListeners();
     }
 
     isInBookContent(node) {
@@ -876,35 +1285,115 @@ class HighlightManager {
         if (!this.bookReader.currentFile?.name) return;
         
         const bookName = this.bookReader.currentFile.name.replace(/\.html$/, '');
-        const highlightsData = {};
         
-        this.highlights.forEach((highlights, pageNum) => {
-            if (highlights.length > 0) {
-                highlightsData[pageNum] = highlights;
+        try {
+            const metadata = this.bookReader.getStoredMetadata();
+            
+            if (!metadata[bookName]) {
+                metadata[bookName] = {};
             }
-        });
-        
-        localStorage.setItem(`highlights_${bookName}`, JSON.stringify(highlightsData));
+            
+            if (!metadata[bookName].pages) {
+                metadata[bookName].pages = {};
+            }
+            
+            this.highlights.forEach((highlights, pageNum) => {
+                if (highlights.length > 0) {
+                    if (!metadata[bookName].pages[pageNum]) {
+                        metadata[bookName].pages[pageNum] = {};
+                    }
+                    metadata[bookName].pages[pageNum].highlights = highlights;
+                } else {
+                    if (metadata[bookName].pages[pageNum]) {
+                        delete metadata[bookName].pages[pageNum].highlights;
+                        if (Object.keys(metadata[bookName].pages[pageNum]).length === 0) {
+                            delete metadata[bookName].pages[pageNum];
+                        }
+                    }
+                }
+            });
+            
+            localStorage.setItem('bookMetadata', JSON.stringify(metadata));
+            
+        } catch (e) {
+            console.warn('Failed to save highlights to bookMetadata:', e);
+        }
     }
 
     loadHighlights() {
         if (!this.bookReader.currentFile?.name) return;
         
         const bookName = this.bookReader.currentFile.name.replace(/\.html$/, '');
-        const saved = localStorage.getItem(`highlights_${bookName}`);
         
-        if (saved) {
-            try {
-                const highlightsData = JSON.parse(saved);
+        try {
+            const metadata = this.bookReader.getStoredMetadata();
+            const bookData = metadata[bookName];
+            
+            if (bookData && bookData.pages) {
                 this.highlights.clear();
                 
-                Object.entries(highlightsData).forEach(([pageNum, highlights]) => {
-                    this.highlights.set(parseInt(pageNum), highlights);
+                Object.entries(bookData.pages).forEach(([pageNum, pageData]) => {
+                    if (pageData.highlights && pageData.highlights.length > 0) {
+                        this.highlights.set(parseInt(pageNum), pageData.highlights);
+                    }
                 });
-            } catch (e) {
-                console.warn('Failed to load highlights:', e);
+                return;
             }
+            
+        } catch (e) {
+            console.warn('Failed to load highlights:', e);
         }
+    }
+
+    getNodePath(node) {
+        // For line markers, we'll use section + character position instead
+        const section = this.findContainingSection(node);
+        if (!section || !section.id) return null;
+        
+        const charPosition = this.getCharPositionInSection(section, node, 0);
+        return {
+            sectionId: section.id,
+            charPosition: charPosition
+        };
+    }
+
+    getNodeByPath(pathData) {
+        // Convert the old path format back to a node for line marker restoration
+        if (!pathData || !pathData.sectionId) return null;
+        
+        const section = document.getElementById(pathData.sectionId);
+        if (!section) return null;
+        
+        // If we have a character position, find the node at that position
+        if (pathData.charPosition !== undefined) {
+            return this.getNodeAtCharPosition(section, pathData.charPosition);
+        }
+        
+        // Fallback to section element
+        return section;
+    }
+
+    getNodeAtCharPosition(section, charPosition) {
+        const walker = document.createTreeWalker(
+            section,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        
+        let currentPos = 0;
+        let textNode;
+        
+        while (textNode = walker.nextNode()) {
+            const nodeLength = textNode.textContent.length;
+            if (currentPos + nodeLength >= charPosition) {
+                return textNode;
+            }
+            currentPos += nodeLength;
+        }
+        
+        // Fallback to section if position not found
+        return section;
     }
 }
 
@@ -922,25 +1411,37 @@ class BookReader {
     }
 
     initializeTheme() {
-        // Get initial theme from localStorage or system preference
-        const isDark = localStorage.getItem('darkMode') === 'true' || 
-            (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        const storedTheme = localStorage.getItem('darkMode');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = storedTheme === 'true' || (!storedTheme && systemPrefersDark);
         
         if (isDark) {
             document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
         }
         
-        // Set up theme toggle
         const toggleButton = document.getElementById('darkModeToggle');
         toggleButton.addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
-            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+            const newDarkMode = !document.documentElement.classList.contains('dark');
+            document.documentElement.classList.toggle('dark', newDarkMode);
+            localStorage.setItem('darkMode', newDarkMode.toString());
+            
+            // Update color pills when theme changes
+            if (this.highlightManager) {
+                this.highlightManager.updateColorPillColors();
+            }
         });
 
-        // Listen for system theme changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
             if (!localStorage.getItem('darkMode')) {
-                document.documentElement.classList.toggle('dark', e.matches);
+                const newDarkMode = e.matches;
+                document.documentElement.classList.toggle('dark', newDarkMode);
+                
+                // Update color pills when system theme changes
+                if (this.highlightManager) {
+                    this.highlightManager.updateColorPillColors();
+                }
             }
         });
     }
@@ -950,7 +1451,6 @@ class BookReader {
         let isAtBottom = false;
         let isAtTop = true;
 
-        // Intersection Observer for sentinels
         const options = {
             root: null,
             rootMargin: '0px',
@@ -974,13 +1474,18 @@ class BookReader {
         topObserver.observe(document.getElementById('topSentinel'));
         bottomObserver.observe(document.getElementById('bottomSentinel'));
 
-        // Add scroll event listener for additional control
+        let scrollSaveTimeout;
         contentWrapper.addEventListener('scroll', () => {
             const atBottom = contentWrapper.scrollHeight - contentWrapper.scrollTop <= contentWrapper.clientHeight + 1;
             if (atBottom !== isAtBottom) {
                 isAtBottom = atBottom;
                 this.updateControlsVisibility(isAtTop, isAtBottom);
             }
+            
+            clearTimeout(scrollSaveTimeout);
+            scrollSaveTimeout = setTimeout(() => {
+                this.saveCurrentState();
+            }, 300);
         });
     }
 
@@ -988,7 +1493,6 @@ class BookReader {
         const header = document.getElementById('header');
         const footer = document.getElementById('footer');
         
-        // Ensure elements exist
         if (!header || !footer) return;
         
         const updateClasses = (element, shouldBeVisible) => {
@@ -1001,36 +1505,76 @@ class BookReader {
             }
         };
 
-        // When at top, show both controls
         if (isAtTop) {
             updateClasses(header, true);
             updateClasses(footer, true);
         } else {
             updateClasses(header, false);
-            // When not at top, footer visibility depends on bottom position
             updateClasses(footer, isAtBottom);
         }
     }
 
     setupEventListeners() {
-        // Navigation
         document.getElementById('prevButton').addEventListener('click', () => this.prevPage());
         document.getElementById('nextButton').addEventListener('click', () => this.nextPage());
         document.getElementById('tocSelect').addEventListener('change', (e) => this.goToPage(parseInt(e.target.value)));
         document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
-        window.addEventListener('beforeunload', () => this.saveCurrentState());
+        
+        window.addEventListener('beforeunload', () => {
+            this.saveCurrentState();
+        });
+        
+        setInterval(() => {
+            if (this.currentFile) {
+                this.saveCurrentState();
+            }
+        }, 30000);
     }
 
     getStoredMetadata() {
-        return JSON.parse(localStorage.getItem('bookMetadata') || '{}');
+        try {
+            const stored = localStorage.getItem('bookMetadata');
+            const metadata = stored ? JSON.parse(stored) : {};
+            return metadata;
+        } catch (e) {
+            console.warn('⚠️ Could not load book metadata:', e);
+            return {};
+        }
     }
 
     saveCurrentState() {
         if (!this.currentFile?.name) return;
+        
         const metadata = this.getStoredMetadata();
         const bookName = this.currentFile.name.replace(/\.html$/, '');
-        metadata[bookName] = { lastPage: this.currentPage };
-        localStorage.setItem('bookMetadata', JSON.stringify(metadata));
+        
+        const contentWrapper = document.getElementById('contentWrapper');
+        const scrollTop = contentWrapper ? contentWrapper.scrollTop : 0;
+        
+        let lineMarkerPath = null;
+        if (this.highlightManager.currentLineHighlight) {
+            const section = this.highlightManager.findContainingSection(this.highlightManager.currentLineHighlight);
+            if (section && section.id) {
+                lineMarkerPath = {
+                    sectionId: section.id,
+                    elementTag: this.highlightManager.currentLineHighlight.tagName
+                };
+            }
+        }
+        
+        if (!metadata[bookName]) {
+            metadata[bookName] = {};
+        }
+        
+        metadata[bookName].lastPage = this.currentPage;
+        metadata[bookName].scrollTop = scrollTop;
+        metadata[bookName].lineMarkerPath = lineMarkerPath;
+        
+        try {
+            localStorage.setItem('bookMetadata', JSON.stringify(metadata));
+        } catch (e) {
+            console.warn('⚠️ Could not save book metadata:', e);
+        }
     }
 
     async handleFileSelect(event) {
@@ -1045,20 +1589,81 @@ class BookReader {
             document.getElementById('currentBookTitle').textContent = bookName;
             this.parseBook(content);
             
-            const metadata = this.getStoredMetadata()[bookName] || {};
-            this.currentPage = metadata.lastPage || 0;
+            if (this.pages.length === 0) {
+                throw new Error('No readable content found in the book file');
+            }
             
-            this.updateDisplay();
+            const savedState = this.getStoredMetadata()[bookName] || {};
+            this.currentPage = this.validatePageNumber(savedState.lastPage) ? savedState.lastPage : 0;
+            
             this.highlightManager.loadHighlights();
-            setTimeout(() => {
-                this.highlightManager.restoreHighlights();
-            }, 100);
-            this.scrollToTop();
+            this.updateDisplay();
+            
+            await this.restoreBookState(savedState);
+            
         } catch (error) {
+            console.error('❌ Error loading book:', error);
             alert('Error reading file: ' + error.message);
         }
 
         event.target.value = '';
+    }
+
+    validatePageNumber(pageNum) {
+        return pageNum !== undefined && 
+               pageNum >= 0 && 
+               pageNum < this.pages.length && 
+               this.pages.length > 0;
+    }
+
+    async restoreBookState(savedState) {
+        await this.waitForDOM(200);
+        this.highlightManager.restoreHighlights();
+        await this.waitForDOM(100);
+        
+        if (savedState.lineMarkerPath) {
+            this.restoreLineMarker(savedState.lineMarkerPath);
+        }
+        
+        await this.restoreScrollPosition(savedState.scrollTop);
+    }
+
+    waitForDOM(delay = 100) {
+        return new Promise(resolve => {
+            setTimeout(resolve, delay);
+        });
+    }
+
+    restoreLineMarker(lineMarkerPath) {
+        try {
+            if (!lineMarkerPath || !lineMarkerPath.sectionId) return;
+            
+            const section = document.getElementById(lineMarkerPath.sectionId);
+            if (section) {
+                // For line markers, just restore to the section element
+                section.classList.add('line-highlight');
+                this.highlightManager.currentLineHighlight = section;
+            }
+        } catch (e) {
+            console.warn('⚠️ Error restoring line marker:', e);
+        }
+    }
+
+    async restoreScrollPosition(scrollTop) {
+        if (!scrollTop || scrollTop <= 0) return;
+        
+        const contentWrapper = document.getElementById('contentWrapper');
+        if (!contentWrapper) return;
+        
+        for (let attempt = 0; attempt < 5; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+            contentWrapper.scrollTop = scrollTop;
+            
+            const actualScroll = contentWrapper.scrollTop;
+            if (Math.abs(actualScroll - scrollTop) <= 10) {
+                return;
+            }
+        }
     }
 
     parseBook(content) {
@@ -1069,18 +1674,34 @@ class BookReader {
         this.pages = [];
         this.tocItems = [['Cover', 0]];
 
-        chapters.forEach((chapter) => {
-            const titleElem = chapter.querySelector('h1, h2, h3');
-            if (titleElem) {
-                const title = titleElem.textContent.trim();
-                this.tocItems.push([title, this.pages.length]);
+        if (chapters.length === 0) {
+            const body = doc.body;
+            if (body && body.textContent.trim()) {
+                const chapterDiv = document.createElement('div');
+                chapterDiv.className = 'chapter-loaded';
+                chapterDiv.innerHTML = this.cleanContent(body);
+                this.pages.push(chapterDiv.outerHTML);
+                this.tocItems.push(['Chapter 1', 0]);
+            } else {
+                console.warn('⚠️ No valid content found in HTML file');
+                this.pages.push('<div class="chapter-loaded"><p>No content found in this book.</p></div>');
             }
+        } else {
+            chapters.forEach((chapter, index) => {
+                const titleElem = chapter.querySelector('h1, h2, h3');
+                if (titleElem) {
+                    const title = titleElem.textContent.trim();
+                    this.tocItems.push([title, this.pages.length]);
+                } else {
+                    this.tocItems.push([`Chapter ${index + 1}`, this.pages.length]);
+                }
 
-            const chapterDiv = document.createElement('div');
-            chapterDiv.className = 'chapter-loaded';
-            chapterDiv.innerHTML = this.cleanContent(chapter);
-            this.pages.push(chapterDiv.outerHTML);
-        });
+                const chapterDiv = document.createElement('div');
+                chapterDiv.className = 'chapter-loaded';
+                chapterDiv.innerHTML = this.cleanContent(chapter);
+                this.pages.push(chapterDiv.outerHTML);
+            });
+        }
 
         this.updateTOC();
     }
@@ -1089,8 +1710,7 @@ class BookReader {
         const clone = element.cloneNode(true);
         
         const cleanup = (node) => {
-            if (node.nodeType === 1) { // Element node
-                // Remove unnecessary attributes
+            if (node.nodeType === 1) {
                 ['data-originalfontfamily', 'data-originalfontsize', 
                 'data-originalcolor', 'data-originalbg', 'onload', 'onerror']
                     .forEach(attr => {
@@ -1099,7 +1719,6 @@ class BookReader {
                         }
                     });
 
-                // Remove all inline styles that affect colors
                 if (node.hasAttribute('style')) {
                     const style = node.getAttribute('style');
                     const newStyle = style
@@ -1114,7 +1733,6 @@ class BookReader {
                     }
                 }
                 
-                // Process children
                 node.childNodes.forEach(cleanup);
             }
         };
@@ -1139,31 +1757,24 @@ class BookReader {
     scrollToTop() {
         const contentWrapper = document.getElementById('contentWrapper');
         
-        // Try multiple scroll methods for maximum compatibility
         const scrollMethods = [
-            // Method 1: scrollTo with options
             () => contentWrapper.scrollTo({
                 top: 0,
                 behavior: 'instant',
             }),
-            // Method 2: Direct scrollTop assignment
             () => contentWrapper.scrollTop = 0,
-            // Method 3: Traditional scrollTo
             () => contentWrapper.scrollTo(0, 0),
-            // Method 4: Scroll parent element if exists
             () => contentWrapper.parentElement?.scrollTo(0, 0),
         ];
 
-        // Try all methods
         scrollMethods.forEach(method => {
             try {
                 method();
             } catch (e) {
-                console.error('Scroll method failed:', e);
+                console.error('⚠️ Scroll method failed:', e);
             }
         });
 
-        // Double-check scroll position in next frame
         requestAnimationFrame(() => {
             if (contentWrapper.scrollTop !== 0) {
                 contentWrapper.scrollTop = 0;
@@ -1181,6 +1792,7 @@ class BookReader {
 
     prevPage() {
         if (this.currentPage > 0) {
+            this.saveCurrentState();
             this.currentPage--;
             this.updateDisplay();
             requestAnimationFrame(() => {
@@ -1191,6 +1803,7 @@ class BookReader {
 
     nextPage() {
         if (this.currentPage < this.pages.length - 1 && !this.isTransitioning) {
+            this.saveCurrentState();
             this.isTransitioning = true;
             this.currentPage++;
             this.updateDisplay();
@@ -1202,6 +1815,7 @@ class BookReader {
 
     goToPage(pageNum) {
         if (pageNum >= 0 && pageNum < this.pages.length) {
+            this.saveCurrentState();
             this.currentPage = pageNum;
             this.updateDisplay();
             requestAnimationFrame(() => {
@@ -1217,37 +1831,27 @@ class BookReader {
             return;
         }
 
-        // Clear any line highlights
         if (this.highlightManager.currentLineHighlight) {
             this.highlightManager.currentLineHighlight.classList.remove('line-highlight');
             this.highlightManager.currentLineHighlight = null;
         }
 
-        // Hide popup
         this.highlightManager.hidePopup();
 
         const contentWrapper = document.getElementById('contentWrapper');
         const oldContent = document.getElementById('bookContent');
         
-        // Remove old content
         oldContent.remove();
-        
-        // Force reflow
         void contentWrapper.offsetHeight;
         
-        // Create fresh content container
         const newContent = document.createElement('div');
         newContent.id = 'bookContent';
         newContent.className = 'max-w-3xl mx-auto px-4';
         newContent.innerHTML = this.pages[this.currentPage];
         
-        // Add new content
         contentWrapper.insertBefore(newContent, contentWrapper.querySelector('#bottomSentinel'));
-        
-        // Force another reflow
         void contentWrapper.offsetHeight;
         
-        // Update UI elements
         document.getElementById('pageIndicator').textContent = 
             `${this.currentPage + 1} / ${this.pages.length}`;
         
@@ -1256,16 +1860,14 @@ class BookReader {
         
         document.getElementById('tocSelect').value = this.currentPage;
         
-        this.saveCurrentState();
+        this.highlightManager.addContentEventListeners();
 
-        // Restore highlights after page change
         setTimeout(() => {
             this.highlightManager.restoreHighlights();
         }, 100);
     }
 }
 
-// Initialize the book reader when the page loads
 window.addEventListener('DOMContentLoaded', () => {
     window.bookReader = new BookReader();
 });
