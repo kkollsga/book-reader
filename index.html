@@ -21,6 +21,9 @@
         }
     </script>
     <style>
+        #bookContent {
+            position: relative; /* Ensure absolute positioning works correctly */
+        }
         .controls-hidden { opacity: 0; pointer-events: none; }
         .controls-visible { opacity: 1; pointer-events: auto; }
         .nav-controls { transition: opacity 0.2s ease-in-out; }
@@ -60,7 +63,7 @@
             border-left-color: rgba(147, 197, 253, 0.7) !important;
         }
 
-        /* Enhanced drag handles - now with dynamic colors */
+        /* Enhanced drag handles - now with dynamic colors and single line height */
         .text-highlight.selected {
             position: relative;
             --handle-color: #3b82f6;
@@ -71,9 +74,8 @@
         .text-highlight.selected .resize-handle-left,
         .text-highlight.selected .resize-handle-right {
             position: absolute;
-            top: -2px;
-            bottom: -2px;
             width: 20px;
+            height: 24px; /* Fixed single-line height */
             background: linear-gradient(135deg, var(--handle-color) 0%, var(--handle-color-dark) 100%);
             opacity: 1;
             cursor: ew-resize;
@@ -94,15 +96,17 @@
             
             /* Touch-friendly minimum size */
             min-width: 20px;
-            min-height: 20px;
+            min-height: 24px;
         }
 
         .text-highlight.selected .resize-handle-left {
             left: -10px;
+            top: -2px; /* Position at start of first line */
         }
 
         .text-highlight.selected .resize-handle-right {
             right: -10px;
+            bottom: -2px; /* Position at end of last line */
         }
 
         /* Enhanced hover and active states */
@@ -121,45 +125,85 @@
             .text-highlight.selected .resize-handle-left,
             .text-highlight.selected .resize-handle-right {
                 width: 24px;
+                height: 28px;
                 min-width: 24px;
+                min-height: 28px;
                 border-radius: 12px;
-                top: -4px;
-                bottom: -4px;
             }
             
             .text-highlight.selected .resize-handle-left {
                 left: -12px;
+                top: -4px;
             }
             
             .text-highlight.selected .resize-handle-right {
                 right: -12px;
+                bottom: -4px;
             }
         }
 
-        /* Visual feedback during dragging */
-        .text-highlight.selected.dragging .resize-handle-left,
-        .text-highlight.selected.dragging .resize-handle-right {
-            transform: scale(1.2);
+        /* Ghost handle that follows finger/mouse */
+        .ghost-handle {
+            position: fixed;
+            width: 24px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--handle-color) 0%, var(--handle-color-dark) 100%);
+            border-radius: 12px;
+            border: 3px solid var(--handle-border);
             box-shadow: 
-                0 8px 20px rgba(0, 0, 0, 0.5),
-                0 4px 12px rgba(0, 0, 0, 0.4);
+                0 8px 20px rgba(0, 0, 0, 0.4),
+                0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0.9;
+            transform: translate(-50%, -50%) scale(1.2);
+            transition: opacity 0.2s ease;
+            
+            /* Ensure it matches highlight colors */
+            --handle-color: #3b82f6;
+            --handle-color-dark: #1d4ed8;
+            --handle-border: #ffffff;
         }
 
-        /* Drag preview overlay */
-        .drag-preview-overlay {
+        .ghost-handle.visible {
+            opacity: 0.9;
+        }
+
+        .ghost-handle.hidden {
+            opacity: 0;
+        }
+
+        /* Selection preview overlay - now supports multiple rectangles for text flow */
+        .selection-preview-segment {
             position: absolute;
             pointer-events: none;
             z-index: 150;
-            background: rgba(59, 130, 246, 0.2);
-            border: 2px dashed rgba(59, 130, 246, 0.6);
-            border-radius: 4px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 2px;
             opacity: 0;
-            transition: opacity 0.2s ease;
+            transition: opacity 0.1s ease;
             transform: translateZ(0); /* Force GPU acceleration */
+            
+            /* Dynamic color support */
+            --preview-bg: rgba(59, 130, 246, 0.15);
+            --preview-border: rgba(59, 130, 246, 0.3);
+            background: var(--preview-bg);
+            border-color: var(--preview-border);
         }
 
-        .drag-preview-overlay.visible {
+        .selection-preview-segment.visible {
             opacity: 1;
+        }
+
+        /* Visual feedback during dragging */
+        .text-highlight.selected.dragging {
+            opacity: 0.7;
+        }
+
+        .text-highlight.selected.dragging .resize-handle-left,
+        .text-highlight.selected.dragging .resize-handle-right {
+            opacity: 0.3;
         }
 
         /* Light mode highlight colors - solid but subtle */
@@ -479,13 +523,14 @@ class HighlightManager {
         this.resizeHandle = null;
         this.resizingHighlight = null;
         this.isDragPreview = false;
-        this.dragPreviewElement = null;
+        this.ghostHandle = null;
+        this.selectionPreviewSegments = []; // Changed to array for multiple segments
         
-        // Touch gesture recognition
-        this.touchStartX = 0;
-        this.touchStartY = 0;
+        // Unified gesture recognition for both mouse and touch
+        this.startX = 0;
+        this.startY = 0;
         this.hasMoved = false;
-        this.dragThreshold = 15; // pixels before starting drag
+        this.dragThreshold = 10; // pixels before starting drag (lower for mouse)
         this.dragStarted = false;
         
         // Performance optimization
@@ -501,6 +546,11 @@ class HighlightManager {
         this.capturedSectionId = null;
         this.capturedStartChar = null;
         this.capturedEndChar = null;
+        this.originalHighlightRect = null;
+        
+        // Preview boundaries
+        this.previewStartChar = null;
+        this.previewEndChar = null;
         
         this.handleClick = this.handleClick.bind(this);
         this.handleMouseDown = this.handleMouseDown.bind(this);
@@ -569,7 +619,7 @@ class HighlightManager {
         };
     }
 
-    // Apply dynamic colors to handles
+    // Apply dynamic colors to handles and ghost
     updateHandleColors(element, colorName) {
         const colorMap = {
             yellow: { r: 217, g: 166, b: 7 },
@@ -595,10 +645,27 @@ class HighlightManager {
         const handleColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
         const handleColorDark = `rgb(${Math.max(0, color.r - 30)}, ${Math.max(0, color.g - 30)}, ${Math.max(0, color.b - 30)})`;
         const borderColor = isDark ? '#1f2937' : '#ffffff';
+        
+        // Preview colors (more transparent)
+        const previewBg = `rgba(${color.r}, ${color.g}, ${color.b}, 0.15)`;
+        const previewBorder = `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`;
 
         element.style.setProperty('--handle-color', handleColor);
         element.style.setProperty('--handle-color-dark', handleColorDark);
         element.style.setProperty('--handle-border', borderColor);
+        
+        // Update ghost handle colors if it exists
+        if (this.ghostHandle) {
+            this.ghostHandle.style.setProperty('--handle-color', handleColor);
+            this.ghostHandle.style.setProperty('--handle-color-dark', handleColorDark);
+            this.ghostHandle.style.setProperty('--handle-border', borderColor);
+        }
+        
+        // Update selection preview colors for all segments
+        this.selectionPreviewSegments.forEach(segment => {
+            segment.style.setProperty('--preview-bg', previewBg);
+            segment.style.setProperty('--preview-border', previewBorder);
+        });
     }
 
     updateColorPillColors() {
@@ -640,21 +707,145 @@ class HighlightManager {
         return { x: e.clientX, y: e.clientY };
     }
 
-    // Create drag preview overlay
-    createDragPreview() {
-        if (this.dragPreviewElement) {
-            this.dragPreviewElement.remove();
+    // Create ghost handle that follows finger/mouse
+    createGhostHandle() {
+        if (this.ghostHandle) {
+            this.ghostHandle.remove();
         }
         
-        const preview = document.createElement('div');
-        preview.className = 'drag-preview-overlay';
-        document.body.appendChild(preview);
-        this.dragPreviewElement = preview;
+        const ghost = document.createElement('div');
+        ghost.className = 'ghost-handle hidden';
         
-        return preview;
+        // Match colors from the current highlight
+        if (this.selectedHighlight) {
+            this.updateGhostColors(ghost, this.selectedHighlight.color);
+        }
+        
+        document.body.appendChild(ghost);
+        this.ghostHandle = ghost;
+        
+        return ghost;
     }
 
-    // Start visual drag preview
+    // Create multiple selection preview segments that follow text flow
+    createSelectionPreviewSegments(range) {
+        // Clean up existing segments
+        this.cleanupSelectionPreview();
+        
+        if (!range) return;
+        
+        try {
+            // Get all rectangles that the range spans
+            const rects = range.getClientRects();
+            const bookContent = document.getElementById('bookContent');
+            
+            if (!bookContent) return;
+            
+            // Get bookContent's position in viewport coordinates
+            const bookRect = bookContent.getBoundingClientRect();
+            
+            // Create a preview segment for each rectangle
+            for (let i = 0; i < rects.length; i++) {
+                const rect = rects[i];
+                
+                // Skip empty rectangles
+                if (rect.width === 0 || rect.height === 0) continue;
+                
+                const segment = document.createElement('div');
+                segment.className = 'selection-preview-segment';
+                
+                // Convert viewport coordinates to bookContent-relative coordinates
+                // rect coordinates are relative to viewport
+                // bookRect coordinates are also relative to viewport
+                // Subtract to get position relative to bookContent
+                const left = rect.left - bookRect.left;
+                const top = rect.top - bookRect.top;
+                
+                segment.style.left = left + 'px';
+                segment.style.top = top + 'px';
+                segment.style.width = rect.width + 'px';
+                segment.style.height = rect.height + 'px';
+                
+                // Match colors from the current highlight
+                if (this.selectedHighlight) {
+                    this.updatePreviewSegmentColors(segment, this.selectedHighlight.color);
+                }
+                
+                bookContent.appendChild(segment);
+                this.selectionPreviewSegments.push(segment);
+            }
+            
+        } catch (e) {
+            console.warn('Failed to create preview segments:', e);
+        }
+    }
+
+    // Clean up selection preview segments
+    cleanupSelectionPreview() {
+        this.selectionPreviewSegments.forEach(segment => {
+            try {
+                if (segment.parentNode) {
+                    segment.parentNode.removeChild(segment);
+                }
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+        });
+        this.selectionPreviewSegments = [];
+    }
+
+    // Update ghost handle colors
+    updateGhostColors(ghost, colorName) {
+        const colorMap = {
+            yellow: { r: 217, g: 166, b: 7 },
+            green: { r: 22, g: 101, b: 52 },
+            blue: { r: 59, g: 130, b: 246 },
+            pink: { r: 190, g: 24, b: 93 },
+            purple: { r: 107, g: 33, b: 168 },
+            orange: { r: 194, g: 65, b: 12 }
+        };
+
+        const isDark = document.documentElement.classList.contains('dark');
+        let color = colorMap[colorName] || colorMap.blue;
+        
+        if (isDark) {
+            color = {
+                r: Math.min(255, color.r + 50),
+                g: Math.min(255, color.g + 50),
+                b: Math.min(255, color.b + 50)
+            };
+        }
+
+        const handleColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+        const handleColorDark = `rgb(${Math.max(0, color.r - 30)}, ${Math.max(0, color.g - 30)}, ${Math.max(0, color.b - 30)})`;
+        const borderColor = isDark ? '#1f2937' : '#ffffff';
+
+        ghost.style.setProperty('--handle-color', handleColor);
+        ghost.style.setProperty('--handle-color-dark', handleColorDark);
+        ghost.style.setProperty('--handle-border', borderColor);
+    }
+
+    // Update preview segment colors
+    updatePreviewSegmentColors(segment, colorName) {
+        const colorMap = {
+            yellow: { r: 217, g: 166, b: 7 },
+            green: { r: 22, g: 101, b: 52 },
+            blue: { r: 59, g: 130, b: 246 },
+            pink: { r: 190, g: 24, b: 93 },
+            purple: { r: 107, g: 33, b: 168 },
+            orange: { r: 194, g: 65, b: 12 }
+        };
+
+        let color = colorMap[colorName] || colorMap.blue;
+        
+        const previewBg = `rgba(${color.r}, ${color.g}, ${color.b}, 0.15)`;
+        const previewBorder = `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`;
+
+        segment.style.setProperty('--preview-bg', previewBg);
+        segment.style.setProperty('--preview-border', previewBorder);
+    }
+
+    // Start visual drag preview with ghost handle
     startDragPreview() {
         if (this.isDragPreview || !this.resizingHighlight) return;
         
@@ -664,61 +855,59 @@ class HighlightManager {
         // Add visual feedback to the highlight
         this.resizingHighlight.classList.add('dragging');
         
-        // Create preview overlay
-        this.createDragPreview();
+        // Store original highlight bounds
+        this.originalHighlightRect = this.resizingHighlight.getBoundingClientRect();
+        
+        // Create ghost handle
+        this.createGhostHandle();
+        
+        // Initialize preview bounds
+        this.previewStartChar = this.capturedStartChar;
+        this.previewEndChar = this.capturedEndChar;
         
         // Prevent document interaction
         document.body.style.userSelect = 'none';
         document.body.style.webkitUserSelect = 'none';
         document.body.style.touchAction = 'none';
+        document.body.style.cursor = 'ew-resize';
     }
 
-    // Update drag preview with RAF throttling
+    // Update ghost handle position and selection preview
     updateDragPreview(coords) {
-        if (!this.isDragPreview || !this.dragPreviewElement) return;
+        if (!this.isDragPreview) return;
         
         this.throttleWithRAF(() => {
-            // Update preview position based on coordinates
-            // This is just visual feedback - no DOM text manipulation
-            const rect = this.resizingHighlight.getBoundingClientRect();
-            const preview = this.dragPreviewElement;
-            
-            let newRect = { ...rect };
-            
-            if (this.resizeHandle === 'left') {
-                newRect.left = Math.min(coords.x, rect.right - 20);
-                newRect.width = rect.right - newRect.left;
-            } else {
-                newRect.width = Math.max(20, coords.x - rect.left);
+            // Update ghost handle position
+            if (this.ghostHandle) {
+                this.ghostHandle.style.left = coords.x + 'px';
+                this.ghostHandle.style.top = coords.y + 'px';
+                this.ghostHandle.classList.remove('hidden');
+                this.ghostHandle.classList.add('visible');
             }
             
-            // Apply visual changes
-            preview.style.left = newRect.left + 'px';
-            preview.style.top = newRect.top + 'px';
-            preview.style.width = newRect.width + 'px';
-            preview.style.height = newRect.height + 'px';
-            preview.classList.add('visible');
+            // Update selection preview bounds
+            this.updateSelectionPreview(coords);
         });
     }
 
-    // Commit drag changes (only on touch end)
-    commitDragChanges(coords) {
-        if (!this.selectedHighlight || !this.resizingHighlight) return;
-
-        const textNode = this.getTextNodeAtPoint(coords.x, coords.y);
-        if (!textNode) return;
-
-        const offset = this.getOffsetInTextNode(textNode, coords.x, coords.y);
+    // Update selection preview based on ghost position
+    updateSelectionPreview(coords) {
+        if (!this.selectedHighlight) return;
         
         try {
+            // Get text node at ghost position
+            const textNode = this.getTextNodeAtPoint(coords.x, coords.y);
+            if (!textNode) return;
+
+            const offset = this.getOffsetInTextNode(textNode, coords.x, coords.y);
             const section = document.getElementById(this.capturedSectionId);
             if (!section) return;
             
             const clickPosition = this.getCharPositionInSection(section, textNode, offset);
             if (clickPosition === -1) return;
             
+            // Calculate new preview bounds
             let newStart, newEnd;
-            
             if (this.resizeHandle === 'left') {
                 newStart = clickPosition;
                 newEnd = this.capturedEndChar;
@@ -726,6 +915,56 @@ class HighlightManager {
                 newStart = this.capturedStartChar;
                 newEnd = clickPosition;
             }
+            
+            if (newStart >= newEnd) {
+                // Invalid range - hide all segments
+                this.selectionPreviewSegments.forEach(segment => {
+                    segment.classList.remove('visible');
+                });
+                return;
+            }
+            
+            // Update preview character bounds
+            this.previewStartChar = newStart;
+            this.previewEndChar = newEnd;
+            
+            // Create range for preview positioning
+            const previewRange = this.createRangeFromCharPositions(section, newStart, newEnd);
+            if (!previewRange) {
+                // Invalid range - hide all segments
+                this.selectionPreviewSegments.forEach(segment => {
+                    segment.classList.remove('visible');
+                });
+                return;
+            }
+            
+            // Create multiple preview segments that follow text flow with corrected positioning
+            this.createSelectionPreviewSegments(previewRange);
+            
+            // Show all segments
+            this.selectionPreviewSegments.forEach(segment => {
+                segment.classList.add('visible');
+            });
+            
+        } catch (e) {
+            // Silently handle errors during preview
+            console.warn('Preview update failed:', e);
+        }
+    }
+
+    // Commit drag changes (only on mouse up / touch end)
+    commitDragChanges() {
+        if (!this.selectedHighlight || !this.resizingHighlight || !this.isDragPreview) return;
+        
+        // Use the preview bounds for final commit
+        if (this.previewStartChar === null || this.previewEndChar === null) return;
+        
+        try {
+            const section = document.getElementById(this.capturedSectionId);
+            if (!section) return;
+            
+            const newStart = this.previewStartChar;
+            const newEnd = this.previewEndChar;
             
             if (newStart >= newEnd) return; // Invalid range
             
@@ -770,15 +1009,33 @@ class HighlightManager {
         }
     }
 
-    handleTouchStart(e) {
-        // Check if this is a resize handle touch
+    // Clean up drag elements
+    cleanupDragElements() {
+        // Remove ghost handle
+        if (this.ghostHandle) {
+            this.ghostHandle.remove();
+            this.ghostHandle = null;
+        }
+        
+        // Remove selection preview segments
+        this.cleanupSelectionPreview();
+        
+        // Remove dragging visual feedback
+        if (this.resizingHighlight) {
+            this.resizingHighlight.classList.remove('dragging');
+        }
+    }
+
+    // Unified drag start handler for both mouse and touch
+    startDragHandler(e) {
+        // Check if this is a resize handle
         if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
             e.preventDefault();
             e.stopPropagation();
             
             const coords = this.getEventCoordinates(e);
-            this.touchStartX = coords.x;
-            this.touchStartY = coords.y;
+            this.startX = coords.x;
+            this.startY = coords.y;
             this.hasMoved = false;
             this.dragStarted = false;
             
@@ -801,7 +1058,8 @@ class HighlightManager {
         }
     }
 
-    handleTouchMove(e) {
+    // Unified drag move handler for both mouse and touch
+    dragMoveHandler(e) {
         if (this.isResizing && this.resizingHighlight) {
             e.preventDefault();
             e.stopPropagation();
@@ -809,8 +1067,8 @@ class HighlightManager {
             const coords = this.getEventCoordinates(e);
             
             // Check if we've moved beyond threshold
-            const deltaX = Math.abs(coords.x - this.touchStartX);
-            const deltaY = Math.abs(coords.y - this.touchStartY);
+            const deltaX = Math.abs(coords.x - this.startX);
+            const deltaY = Math.abs(coords.y - this.startY);
             const totalMovement = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
             if (totalMovement > this.dragThreshold && !this.dragStarted) {
@@ -825,110 +1083,77 @@ class HighlightManager {
         }
     }
 
-    handleTouchEnd(e) {
+    // Unified drag end handler for both mouse and touch
+    dragEndHandler(e) {
         if (this.isResizing) {
             e.preventDefault();
             e.stopPropagation();
             
-            // Clean up drag preview
-            if (this.isDragPreview && this.dragPreviewElement) {
-                this.dragPreviewElement.remove();
-                this.dragPreviewElement = null;
-                this.isDragPreview = false;
-            }
-            
-            // Remove dragging visual feedback
-            if (this.resizingHighlight) {
-                this.resizingHighlight.classList.remove('dragging');
-            }
-            
             // Commit changes if we actually dragged
             if (this.dragStarted && this.hasMoved) {
-                const coords = this.getEventCoordinates(e);
-                this.commitDragChanges(coords);
+                this.commitDragChanges();
             }
+            
+            // Clean up drag elements
+            this.cleanupDragElements();
             
             this.isResizing = false;
             this.resizeHandle = null;
             this.resizingHighlight = null;
             this.dragStarted = false;
+            this.isDragPreview = false;
             
             // Clean up captured data
             this.capturedSectionId = null;
             this.capturedStartChar = null;
             this.capturedEndChar = null;
+            this.previewStartChar = null;
+            this.previewEndChar = null;
             
             // Restore document interaction
             document.body.style.userSelect = '';
             document.body.style.webkitUserSelect = '';
             document.body.style.touchAction = '';
+            document.body.style.cursor = '';
             
             this.saveHighlights();
         }
     }
 
+    // Touch event handlers
+    handleTouchStart(e) {
+        this.startDragHandler(e);
+    }
+
+    handleTouchMove(e) {
+        this.dragMoveHandler(e);
+    }
+
+    handleTouchEnd(e) {
+        this.dragEndHandler(e);
+    }
+
+    // Mouse event handlers - now unified with touch
     handleMouseDown(e) {
-        if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            this.isResizing = true;
-            this.resizeHandle = e.target.classList.contains('resize-handle-left') ? 'left' : 'right';
-            this.resizingHighlight = e.target.closest('.text-highlight.selected');
-            
-            if (!this.resizingHighlight) return;
-            
-            // Add dragging visual feedback
-            this.resizingHighlight.classList.add('dragging');
-            
-            // Capture current highlight position data
-            const highlightData = this.selectedHighlight;
-            this.capturedSectionId = highlightData.sectionId;
-            this.capturedStartChar = highlightData.startChar;
-            this.capturedEndChar = highlightData.endChar;
-            
-            document.body.style.cursor = 'ew-resize';
-            document.body.style.userSelect = 'none';
-        }
+        this.startDragHandler(e);
     }
 
     handleMouseMove(e) {
-        if (this.isResizing && this.resizingHighlight) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const coords = this.getEventCoordinates(e);
-            this.commitDragChanges(coords);
-        } else {
+        if (!this.isResizing) {
+            // Handle cursor changes for hover
             if (e.target.classList.contains('resize-handle-left') || e.target.classList.contains('resize-handle-right')) {
                 document.body.style.cursor = 'ew-resize';
-            } else if (!this.isResizing) {
+            } else {
                 document.body.style.cursor = '';
             }
+            return;
         }
+        
+        this.dragMoveHandler(e);
     }
 
     handleMouseUp(e) {
-        if (this.isResizing) {
-            // Remove dragging visual feedback
-            if (this.resizingHighlight) {
-                this.resizingHighlight.classList.remove('dragging');
-            }
-            
-            this.isResizing = false;
-            this.resizeHandle = null;
-            this.resizingHighlight = null;
-            
-            // Clean up captured data
-            this.capturedSectionId = null;
-            this.capturedStartChar = null;
-            this.capturedEndChar = null;
-            
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-            
-            this.saveHighlights();
-        }
+        this.dragEndHandler(e);
     }
 
     handleClick(e) {
