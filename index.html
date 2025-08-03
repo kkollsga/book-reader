@@ -434,6 +434,8 @@
             caret-color: rgb(147, 197, 253);
         }
     </style>
+    <!-- Container for dynamically injected book styles -->
+    <style id="bookStyles"></style>
 </head>
 <body class="bg-white dark:bg-true-black text-gray-900 dark:text-white min-h-screen transition-colors duration-200">
     <div class="min-h-screen flex flex-col">
@@ -509,6 +511,256 @@
     </div>
 
 <script>
+class StyleProcessor {
+    constructor() {
+        this.styleElement = document.getElementById('bookStyles');
+        // Properties that affect coloring and should be removed
+        this.colorProperties = [
+            'color',
+            'background-color',
+            'background',
+            'border-color',
+            'outline-color',
+            'text-decoration-color',
+            'text-emphasis-color',
+            'column-rule-color',
+            'caret-color',
+            'fill',
+            'stroke',
+            'stop-color',
+            'flood-color',
+            'lighting-color'
+        ];
+    }
+
+    extractAndProcessStyles(doc) {
+        const styles = doc.querySelectorAll('style');
+        let processedCSS = '';
+
+        styles.forEach(styleTag => {
+            const cssText = styleTag.textContent;
+            const cleanedCSS = this.processCSS(cssText);
+            if (cleanedCSS) {
+                processedCSS += cleanedCSS + '\n';
+            }
+        });
+
+        // Also extract styles from link tags if they reference internal styles
+        const inlineStyles = doc.querySelectorAll('style[type="text/css"]');
+        inlineStyles.forEach(styleTag => {
+            const cssText = styleTag.textContent;
+            const cleanedCSS = this.processCSS(cssText);
+            if (cleanedCSS && !processedCSS.includes(cleanedCSS)) {
+                processedCSS += cleanedCSS + '\n';
+            }
+        });
+
+        return processedCSS;
+    }
+
+    processCSS(cssText) {
+        if (!cssText || !cssText.trim()) return '';
+
+        try {
+            // Split CSS into rules while preserving media queries and keyframes
+            const rules = this.parseCSS(cssText);
+            const processedRules = [];
+
+            rules.forEach(rule => {
+                if (rule.type === 'media') {
+                    // Process media query
+                    const processedMedia = this.processMediaQuery(rule);
+                    if (processedMedia) {
+                        processedRules.push(processedMedia);
+                    }
+                } else if (rule.type === 'keyframes') {
+                    // Keep keyframes as-is but remove color properties
+                    const processedKeyframes = this.processKeyframes(rule);
+                    if (processedKeyframes) {
+                        processedRules.push(processedKeyframes);
+                    }
+                } else if (rule.type === 'rule') {
+                    // Process regular CSS rule
+                    const processedRule = this.processRule(rule);
+                    if (processedRule) {
+                        processedRules.push(processedRule);
+                    }
+                }
+            });
+
+            return processedRules.join('\n');
+        } catch (e) {
+            console.warn('Failed to process CSS:', e);
+            return '';
+        }
+    }
+
+    parseCSS(cssText) {
+        const rules = [];
+        let currentPos = 0;
+
+        // Simple CSS parser that handles media queries, keyframes, and regular rules
+        const cssString = cssText.trim();
+        
+        // Regular expression patterns
+        const mediaQueryRegex = /@media[^{]+{/g;
+        const keyframesRegex = /@(?:keyframes|webkit-keyframes|moz-keyframes)[^{]+{/g;
+        const ruleRegex = /([^{}]+){([^}]*)}/g;
+
+        // First, handle special at-rules (media queries and keyframes)
+        let processedCSS = cssString;
+        
+        // Extract media queries
+        const mediaMatches = [...cssString.matchAll(/@media[^{]+{[^{}]*(?:{[^}]*}[^{}]*)*}/g)];
+        mediaMatches.forEach(match => {
+            const mediaContent = match[0];
+            const mediaCondition = mediaContent.match(/@media([^{]+){/)[1];
+            const innerContent = mediaContent.substring(mediaContent.indexOf('{') + 1, mediaContent.lastIndexOf('}'));
+            
+            rules.push({
+                type: 'media',
+                condition: mediaCondition.trim(),
+                content: innerContent
+            });
+            
+            processedCSS = processedCSS.replace(mediaContent, '');
+        });
+
+        // Extract keyframes
+        const keyframesMatches = [...cssString.matchAll(/@(?:keyframes|webkit-keyframes|moz-keyframes)([^{]+){[^{}]*(?:{[^}]*}[^{}]*)*}/g)];
+        keyframesMatches.forEach(match => {
+            const keyframesContent = match[0];
+            const keyframesName = keyframesContent.match(/@(?:keyframes|webkit-keyframes|moz-keyframes)([^{]+){/)[1];
+            const innerContent = keyframesContent.substring(keyframesContent.indexOf('{') + 1, keyframesContent.lastIndexOf('}'));
+            
+            rules.push({
+                type: 'keyframes',
+                name: keyframesName.trim(),
+                content: innerContent
+            });
+            
+            processedCSS = processedCSS.replace(keyframesContent, '');
+        });
+
+        // Now process regular rules from the remaining CSS
+        let ruleMatch;
+        ruleRegex.lastIndex = 0;
+        while ((ruleMatch = ruleRegex.exec(processedCSS)) !== null) {
+            const selector = ruleMatch[1].trim();
+            const declarations = ruleMatch[2].trim();
+            
+            if (selector && declarations) {
+                rules.push({
+                    type: 'rule',
+                    selector: selector,
+                    declarations: declarations
+                });
+            }
+        }
+
+        return rules;
+    }
+
+    processRule(rule) {
+        const declarations = this.parseDeclarations(rule.declarations);
+        const cleanedDeclarations = declarations.filter(decl => {
+            const property = decl.property.toLowerCase();
+            return !this.colorProperties.some(colorProp => property.includes(colorProp));
+        });
+
+        if (cleanedDeclarations.length === 0) {
+            return null;
+        }
+
+        const declarationsString = cleanedDeclarations
+            .map(decl => `${decl.property}: ${decl.value};`)
+            .join(' ');
+
+        return `${rule.selector} { ${declarationsString} }`;
+    }
+
+    processMediaQuery(rule) {
+        const innerRules = this.parseCSS(rule.content);
+        const processedInnerRules = [];
+
+        innerRules.forEach(innerRule => {
+            if (innerRule.type === 'rule') {
+                const processed = this.processRule(innerRule);
+                if (processed) {
+                    processedInnerRules.push(processed);
+                }
+            }
+        });
+
+        if (processedInnerRules.length === 0) {
+            return null;
+        }
+
+        return `@media ${rule.condition} {\n${processedInnerRules.join('\n')}\n}`;
+    }
+
+    processKeyframes(rule) {
+        // Process keyframe content to remove color properties
+        const keyframeRules = rule.content.match(/[^{}]+{[^}]*}/g) || [];
+        const processedKeyframeRules = [];
+
+        keyframeRules.forEach(keyframeRule => {
+            const match = keyframeRule.match(/([^{]+){([^}]*)}/);
+            if (match) {
+                const selector = match[1].trim();
+                const declarations = this.parseDeclarations(match[2]);
+                const cleanedDeclarations = declarations.filter(decl => {
+                    const property = decl.property.toLowerCase();
+                    return !this.colorProperties.some(colorProp => property.includes(colorProp));
+                });
+
+                if (cleanedDeclarations.length > 0) {
+                    const declarationsString = cleanedDeclarations
+                        .map(decl => `${decl.property}: ${decl.value};`)
+                        .join(' ');
+                    processedKeyframeRules.push(`${selector} { ${declarationsString} }`);
+                }
+            }
+        });
+
+        if (processedKeyframeRules.length === 0) {
+            return null;
+        }
+
+        return `@keyframes ${rule.name} {\n${processedKeyframeRules.join('\n')}\n}`;
+    }
+
+    parseDeclarations(declarationsString) {
+        const declarations = [];
+        const declArray = declarationsString.split(';');
+
+        declArray.forEach(decl => {
+            const colonIndex = decl.indexOf(':');
+            if (colonIndex > 0) {
+                const property = decl.substring(0, colonIndex).trim();
+                const value = decl.substring(colonIndex + 1).trim();
+                if (property && value) {
+                    declarations.push({ property, value });
+                }
+            }
+        });
+
+        return declarations;
+    }
+
+    injectStyles(cssText) {
+        if (this.styleElement && cssText) {
+            this.styleElement.textContent = cssText;
+        }
+    }
+
+    clearStyles() {
+        if (this.styleElement) {
+            this.styleElement.textContent = '';
+        }
+    }
+}
+
 class HighlightManager {
     constructor(bookReader) {
         this.bookReader = bookReader;
@@ -1928,6 +2180,7 @@ class BookReader {
         this.pages = [];
         this.tocItems = [];
         this.isTransitioning = false;
+        this.styleProcessor = new StyleProcessor();
         this.setupEventListeners();
         this.setupIntersectionObserver();
         this.initializeTheme();
@@ -2192,6 +2445,10 @@ class BookReader {
         const parser = new DOMParser();
         const doc = parser.parseFromString(content, 'text/html');
         
+        // Extract and process styles first
+        const processedStyles = this.styleProcessor.extractAndProcessStyles(doc);
+        this.styleProcessor.injectStyles(processedStyles);
+        
         const chapters = doc.querySelectorAll('.chapter-loaded');
         this.pages = [];
         this.tocItems = [['Cover', 0]];
@@ -2316,6 +2573,8 @@ class BookReader {
         if (this.currentPage > 0) {
             this.saveCurrentState();
             this.currentPage--;
+            // Clear old styles when changing pages
+            this.styleProcessor.clearStyles();
             this.updateDisplay();
             requestAnimationFrame(() => {
                 this.scrollToBottom();
@@ -2328,6 +2587,8 @@ class BookReader {
             this.saveCurrentState();
             this.isTransitioning = true;
             this.currentPage++;
+            // Clear old styles when changing pages
+            this.styleProcessor.clearStyles();
             this.updateDisplay();
             requestAnimationFrame(() => {
                 this.isTransitioning = false;
@@ -2339,6 +2600,8 @@ class BookReader {
         if (pageNum >= 0 && pageNum < this.pages.length) {
             this.saveCurrentState();
             this.currentPage = pageNum;
+            // Clear old styles when changing pages
+            this.styleProcessor.clearStyles();
             this.updateDisplay();
             requestAnimationFrame(() => {
                 this.scrollToTop();
