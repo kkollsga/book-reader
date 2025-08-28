@@ -587,6 +587,9 @@ class HighlightManager {
         this.tapDelay = 300;
         this.singleTapTimer = null;
         
+        // Scroll handling
+        this.scrollHandler = null;
+        
         this.setupEventListeners();
         this.loadHighlights();
         this.updateColorPillColors();
@@ -660,6 +663,19 @@ class HighlightManager {
         document.addEventListener('pointermove', this.handlePointerMove.bind(this));
         document.addEventListener('pointerup', this.handlePointerUp.bind(this));
         document.addEventListener('pointercancel', this.handlePointerUp.bind(this));
+        
+        // Scroll event handling for popups
+        const contentWrapper = document.getElementById('contentWrapper');
+        if (contentWrapper) {
+            this.scrollHandler = () => {
+                if (this.selectionMode === 'soft' && this.selectedHighlight) {
+                    this.repositionCommentPopup();
+                } else if (this.selectionMode === 'full' && this.selectedHighlight) {
+                    this.repositionFullPopup();
+                }
+            };
+            contentWrapper.addEventListener('scroll', this.scrollHandler);
+        }
 
         this.addContentEventListeners();
     }
@@ -832,6 +848,7 @@ class HighlightManager {
             }
             
             const bookContent = document.getElementById('bookContent');
+            const contentWrapper = document.getElementById('contentWrapper');
             const bookRect = bookContent.getBoundingClientRect();
             
             // Get stored color values
@@ -887,12 +904,12 @@ class HighlightManager {
                     this.dragState.previewElement.appendChild(box);
                 }
                 
-                // Update position and size for this box
-                const scrollLeft = bookContent.scrollLeft || 0;
-                const scrollTop = bookContent.scrollTop || 0;
+                // Calculate position relative to bookContent considering scroll
+                const scrollTop = contentWrapper ? contentWrapper.scrollTop : 0;
                 
-                box.style.left = (rect.left - bookRect.left + scrollLeft) + 'px';
-                box.style.top = (rect.top - bookRect.top + scrollTop) + 'px';
+                // Position relative to the bookContent container
+                box.style.left = (rect.left - bookRect.left) + 'px';
+                box.style.top = (rect.top - bookRect.top) + 'px';
                 box.style.width = rect.width + 'px';
                 box.style.height = rect.height + 'px';
                 
@@ -1252,8 +1269,10 @@ class HighlightManager {
         this.selectedHighlight = highlightData;
         this.selectionMode = 'soft';
         
-        // Always show comment popup in soft mode (even if empty to show it's selected)
-        this.showCommentOnlyPopup(highlightData);
+        // Only show comment popup if there's actually a comment
+        if (highlightData.comment && highlightData.comment.trim()) {
+            this.showCommentOnlyPopup(highlightData);
+        }
     }
 
     enterFullSelectionMode() {
@@ -1296,33 +1315,32 @@ class HighlightManager {
     }
 
     showCommentOnlyPopup(highlightData) {
+        // Only show if there's a comment
+        if (!highlightData.comment || !highlightData.comment.trim()) return;
+        
         const element = document.querySelector(`[data-highlight-id="${highlightData.id}"]`);
         if (!element) return;
         
         const rect = element.getBoundingClientRect();
         const popup = this.commentOnlyPopup;
         
-        // Update content - show placeholder if no comment
-        if (highlightData.comment) {
-            popup.textContent = highlightData.comment;
-            popup.style.fontStyle = 'normal';
-            popup.style.opacity = '1';
-        } else {
-            popup.textContent = 'Click to add note...';
-            popup.style.fontStyle = 'italic';
-            popup.style.opacity = '0.7';
-        }
+        // Store the associated highlight for repositioning
+        popup.dataset.highlightId = highlightData.id;
+        
+        // Update content
+        popup.textContent = highlightData.comment;
+        popup.style.fontStyle = 'normal';
         
         // Update dark mode styles
         const isDark = document.documentElement.classList.contains('dark');
         if (isDark) {
             popup.style.background = 'rgba(17, 24, 39, 0.95)';
             popup.style.borderColor = 'rgba(75, 85, 99, 0.8)';
-            popup.style.color = highlightData.comment ? '#e5e7eb' : '#9ca3af';
+            popup.style.color = '#e5e7eb';
         } else {
             popup.style.background = 'rgba(255, 255, 255, 0.95)';
             popup.style.borderColor = 'rgba(229, 231, 235, 0.8)';
-            popup.style.color = highlightData.comment ? '#374151' : '#9ca3af';
+            popup.style.color = '#374151';
         }
         
         // Show and position
@@ -1342,9 +1360,58 @@ class HighlightManager {
             
             popup.style.left = left + 'px';
             popup.style.top = top + 'px';
-            popup.style.opacity = highlightData.comment ? '1' : '0.7';
+            popup.style.opacity = '1';
             popup.style.transform = 'translateY(0)';
         });
+    }
+
+    repositionCommentPopup() {
+        if (!this.commentOnlyPopup || this.commentOnlyPopup.style.display === 'none') return;
+        
+        const highlightId = this.commentOnlyPopup.dataset.highlightId;
+        if (!highlightId) return;
+        
+        const element = document.querySelector(`[data-highlight-id="${highlightId}"]`);
+        if (!element) return;
+        
+        const rect = element.getBoundingClientRect();
+        const popup = this.commentOnlyPopup;
+        const popupRect = popup.getBoundingClientRect();
+        
+        // Center above the highlight
+        let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
+        left = Math.max(10, Math.min(left, window.innerWidth - popupRect.width - 10));
+        
+        let top = rect.top - popupRect.height - 10;
+        if (top < 10) {
+            top = rect.bottom + 10;
+        }
+        
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
+    }
+
+    repositionFullPopup() {
+        if (!this.popup || this.popup.style.display === 'none') return;
+        if (!this.selectedHighlight) return;
+        
+        const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
+        if (!element) return;
+        
+        const rect = element.getBoundingClientRect();
+        const popup = this.popup;
+        const popupRect = popup.getBoundingClientRect();
+        
+        let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
+        left = Math.max(10, Math.min(left, window.innerWidth - popupRect.width - 10));
+        
+        let top = rect.top - popupRect.height - 15;
+        if (top < 10) {
+            top = rect.bottom + 15;
+        }
+        
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
     }
 
     hideCommentOnlyPopup() {
@@ -1354,9 +1421,197 @@ class HighlightManager {
             setTimeout(() => {
                 if (this.commentOnlyPopup) {
                     this.commentOnlyPopup.style.display = 'none';
+                    this.commentOnlyPopup.dataset.highlightId = '';
                 }
             }, 200);
         }
+    }
+
+    showPopup(highlightData) {
+        const element = document.querySelector(`[data-highlight-id="${highlightData.id}"]`);
+        if (!element) {
+            console.warn('Could not find highlight element for popup');
+            return;
+        }
+
+        const rect = element.getBoundingClientRect();
+        const popup = this.popup;
+
+        const commentDiv = document.getElementById('highlightComment');
+        const textarea = commentDiv.querySelector('.comment-input');
+        
+        const commentText = highlightData.comment || '';
+        textarea.value = commentText;
+        this.autoResizeTextarea(textarea);
+        
+        document.querySelectorAll('[data-color]').forEach(pill => {
+            const isSelected = pill.dataset.color === highlightData.color;
+            if (isSelected) {
+                pill.style.borderColor = '#3b82f6';
+                pill.style.transform = 'scale(1.2)';
+                pill.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
+            } else {
+                pill.style.borderColor = 'transparent';
+                pill.style.transform = 'scale(1)';
+                pill.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+            }
+        });
+
+        popup.style.display = 'block';
+        
+        requestAnimationFrame(() => {
+            const popupRect = popup.getBoundingClientRect();
+            
+            let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
+            left = Math.max(10, Math.min(left, window.innerWidth - popupRect.width - 10));
+            
+            let top = rect.top - popupRect.height - 15;
+            if (top < 10) {
+                top = rect.bottom + 15;
+            }
+            
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
+            popup.classList.add('show');
+        });
+    }
+
+    hidePopup() {
+        const popup = this.popup;
+        popup.classList.remove('show');
+        
+        if (this.selectedHighlight) {
+            const textarea = document.querySelector('.comment-input');
+            if (textarea) {
+                const newComment = textarea.value.trim();
+                if (this.selectedHighlight.comment !== newComment) {
+                    this.selectedHighlight.comment = newComment;
+                    this.saveHighlights();
+                }
+            }
+            
+            // Clear inline styles from the highlight element when closing popup
+            const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
+            if (element) {
+                element.style.boxShadow = '';
+                element.style.transform = '';
+            }
+        }
+        
+        setTimeout(() => {
+            popup.style.display = 'none';
+        }, 200);
+        
+        this.isEditingComment = false;
+        
+        const commentDiv = document.getElementById('highlightComment');
+        if (commentDiv) {
+            commentDiv.classList.remove('editing');
+        }
+    }
+
+    startEditing() {
+        const commentDiv = document.getElementById('highlightComment');
+        const textarea = commentDiv.querySelector('.comment-input');
+        
+        commentDiv.classList.add('editing');
+        textarea.focus();
+        
+        this.autoResizeTextarea(textarea);
+        
+        let saveTimeout;
+        const debouncedSave = () => {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                if (this.selectedHighlight) {
+                    const newComment = textarea.value.trim();
+                    if (this.selectedHighlight.comment !== newComment) {
+                        this.selectedHighlight.comment = newComment;
+                        this.saveHighlights();
+                    }
+                }
+            }, 300);
+        };
+        
+        textarea.removeEventListener('input', this.commentInputHandler);
+        textarea.removeEventListener('blur', this.commentBlurHandler);
+        
+        this.commentInputHandler = () => {
+            this.autoResizeTextarea(textarea);
+            debouncedSave();
+        };
+        
+        this.commentBlurHandler = () => {
+            if (this.selectedHighlight) {
+                const newComment = textarea.value.trim();
+                if (this.selectedHighlight.comment !== newComment) {
+                    this.selectedHighlight.comment = newComment;
+                    this.saveHighlights();
+                }
+            }
+        };
+        
+        textarea.addEventListener('input', this.commentInputHandler);
+        textarea.addEventListener('blur', this.commentBlurHandler);
+    }
+
+    autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto';
+        const newHeight = Math.max(20, textarea.scrollHeight);
+        textarea.style.height = newHeight + 'px';
+        textarea.rows = Math.max(1, Math.ceil(newHeight / 20));
+    }
+
+    changeHighlightColor(color) {
+        if (!this.selectedHighlight) return;
+
+        const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
+        if (element) {
+            element.classList.remove(`highlight-${this.selectedHighlight.color}`);
+            element.classList.add(`highlight-${color}`);
+            
+            this.selectedHighlight.color = color;
+            
+            this.updateHandleColors(element, color);
+            
+            document.querySelectorAll('[data-color]').forEach(pill => {
+                const isSelected = pill.dataset.color === color;
+                if (isSelected) {
+                    pill.style.borderColor = '#3b82f6';
+                    pill.style.transform = 'scale(1.2)';
+                    pill.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
+                } else {
+                    pill.style.borderColor = 'transparent';
+                    pill.style.transform = 'scale(1)';
+                    pill.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                }
+            });
+            
+            this.saveHighlights();
+        }
+    }
+
+    deleteHighlight() {
+        if (!this.selectedHighlight) return;
+
+        const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
+        if (element) {
+            const parent = element.parentNode;
+            const textNode = document.createTextNode(element.textContent);
+            parent.replaceChild(textNode, element);
+            parent.normalize();
+        }
+
+        const pageHighlights = this.highlights.get(this.selectedHighlight.pageNum);
+        if (pageHighlights) {
+            const index = pageHighlights.findIndex(h => h.id === this.selectedHighlight.id);
+            if (index !== -1) {
+                pageHighlights.splice(index, 1);
+            }
+        }
+
+        this.saveHighlights();
+        this.clearSelection();
     }
 
     addLineHighlight(element) {
@@ -1740,198 +1995,6 @@ class HighlightManager {
         }
         this.highlights.get(pageNum).push(highlightData);
         this.saveHighlights();
-    }
-
-    selectHighlight(highlightData) {
-        // This is now deprecated - use enterSoftSelectionMode or enterFullSelectionMode
-        this.enterFullSelectionMode();
-    }
-
-    showPopup(highlightData) {
-        const element = document.querySelector(`[data-highlight-id="${highlightData.id}"]`);
-        if (!element) {
-            console.warn('Could not find highlight element for popup');
-            return;
-        }
-
-        const rect = element.getBoundingClientRect();
-        const popup = this.popup;
-
-        const commentDiv = document.getElementById('highlightComment');
-        const textarea = commentDiv.querySelector('.comment-input');
-        
-        const commentText = highlightData.comment || '';
-        textarea.value = commentText;
-        this.autoResizeTextarea(textarea);
-        
-        document.querySelectorAll('[data-color]').forEach(pill => {
-            const isSelected = pill.dataset.color === highlightData.color;
-            if (isSelected) {
-                pill.style.borderColor = '#3b82f6';
-                pill.style.transform = 'scale(1.2)';
-                pill.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
-            } else {
-                pill.style.borderColor = 'transparent';
-                pill.style.transform = 'scale(1)';
-                pill.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-            }
-        });
-
-        popup.style.display = 'block';
-        
-        requestAnimationFrame(() => {
-            const popupRect = popup.getBoundingClientRect();
-            
-            let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
-            left = Math.max(10, Math.min(left, window.innerWidth - popupRect.width - 10));
-            
-            let top = rect.top - popupRect.height - 15;
-            if (top < 10) {
-                top = rect.bottom + 15;
-            }
-            
-            popup.style.left = left + 'px';
-            popup.style.top = top + 'px';
-            popup.classList.add('show');
-        });
-    }
-
-    hidePopup() {
-        const popup = this.popup;
-        popup.classList.remove('show');
-        
-        if (this.selectedHighlight) {
-            const textarea = document.querySelector('.comment-input');
-            if (textarea) {
-                const newComment = textarea.value.trim();
-                if (this.selectedHighlight.comment !== newComment) {
-                    this.selectedHighlight.comment = newComment;
-                    this.saveHighlights();
-                }
-            }
-            
-            // Clear inline styles from the highlight element when closing popup
-            const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
-            if (element) {
-                element.style.boxShadow = '';
-                element.style.transform = '';
-            }
-        }
-        
-        setTimeout(() => {
-            popup.style.display = 'none';
-        }, 200);
-        
-        this.isEditingComment = false;
-        
-        const commentDiv = document.getElementById('highlightComment');
-        if (commentDiv) {
-            commentDiv.classList.remove('editing');
-        }
-    }
-
-    startEditing() {
-        const commentDiv = document.getElementById('highlightComment');
-        const textarea = commentDiv.querySelector('.comment-input');
-        
-        commentDiv.classList.add('editing');
-        textarea.focus();
-        
-        this.autoResizeTextarea(textarea);
-        
-        let saveTimeout;
-        const debouncedSave = () => {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                if (this.selectedHighlight) {
-                    const newComment = textarea.value.trim();
-                    if (this.selectedHighlight.comment !== newComment) {
-                        this.selectedHighlight.comment = newComment;
-                        this.saveHighlights();
-                    }
-                }
-            }, 300);
-        };
-        
-        textarea.removeEventListener('input', this.commentInputHandler);
-        textarea.removeEventListener('blur', this.commentBlurHandler);
-        
-        this.commentInputHandler = () => {
-            this.autoResizeTextarea(textarea);
-            debouncedSave();
-        };
-        
-        this.commentBlurHandler = () => {
-            if (this.selectedHighlight) {
-                const newComment = textarea.value.trim();
-                if (this.selectedHighlight.comment !== newComment) {
-                    this.selectedHighlight.comment = newComment;
-                    this.saveHighlights();
-                }
-            }
-        };
-        
-        textarea.addEventListener('input', this.commentInputHandler);
-        textarea.addEventListener('blur', this.commentBlurHandler);
-    }
-
-    autoResizeTextarea(textarea) {
-        textarea.style.height = 'auto';
-        const newHeight = Math.max(20, textarea.scrollHeight);
-        textarea.style.height = newHeight + 'px';
-        textarea.rows = Math.max(1, Math.ceil(newHeight / 20));
-    }
-
-    changeHighlightColor(color) {
-        if (!this.selectedHighlight) return;
-
-        const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
-        if (element) {
-            element.classList.remove(`highlight-${this.selectedHighlight.color}`);
-            element.classList.add(`highlight-${color}`);
-            
-            this.selectedHighlight.color = color;
-            
-            this.updateHandleColors(element, color);
-            
-            document.querySelectorAll('[data-color]').forEach(pill => {
-                const isSelected = pill.dataset.color === color;
-                if (isSelected) {
-                    pill.style.borderColor = '#3b82f6';
-                    pill.style.transform = 'scale(1.2)';
-                    pill.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
-                } else {
-                    pill.style.borderColor = 'transparent';
-                    pill.style.transform = 'scale(1)';
-                    pill.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-                }
-            });
-            
-            this.saveHighlights();
-        }
-    }
-
-    deleteHighlight() {
-        if (!this.selectedHighlight) return;
-
-        const element = document.querySelector(`[data-highlight-id="${this.selectedHighlight.id}"]`);
-        if (element) {
-            const parent = element.parentNode;
-            const textNode = document.createTextNode(element.textContent);
-            parent.replaceChild(textNode, element);
-            parent.normalize();
-        }
-
-        const pageHighlights = this.highlights.get(this.selectedHighlight.pageNum);
-        if (pageHighlights) {
-            const index = pageHighlights.findIndex(h => h.id === this.selectedHighlight.id);
-            if (index !== -1) {
-                pageHighlights.splice(index, 1);
-            }
-        }
-
-        this.saveHighlights();
-        this.clearSelection();
     }
 
     restoreHighlights() {
