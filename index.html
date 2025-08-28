@@ -933,15 +933,27 @@ class HighlightManager {
         // Find the character position at the pointer location
         const position = this.getCharacterPositionAtPoint(x, y);
         if (!position || position.charIndex < 0) {
-            // Hide preview if we can't find a valid position
             if (this.dragState.previewElement) {
                 this.dragState.previewElement.style.display = 'none';
             }
             return;
         }
         
-        const section = document.getElementById(this.dragState.highlightData.sectionId);
-        if (!section) return;
+        // Make sure we're working within the same section as the original highlight
+        const originalSection = document.getElementById(this.dragState.highlightData.sectionId);
+        if (!originalSection) {
+            console.warn('Original section not found:', this.dragState.highlightData.sectionId);
+            return;
+        }
+        
+        // Check if the pointer is within the same section
+        if (position.section && position.section.id !== this.dragState.highlightData.sectionId) {
+            // User is trying to drag outside the original section - don't allow this
+            if (this.dragState.previewElement) {
+                this.dragState.previewElement.style.display = 'none';
+            }
+            return;
+        }
         
         // Calculate new range based on drag handle
         let newStartChar, newEndChar;
@@ -963,8 +975,8 @@ class HighlightManager {
             return;
         }
         
-        // Create preview range
-        const previewRange = this.createRangeFromCharPositions(section, newStartChar, newEndChar);
+        // Create preview range using the original section
+        const previewRange = this.createRangeFromCharPositions(originalSection, newStartChar, newEndChar);
         if (!previewRange) {
             if (this.dragState.previewElement) {
                 this.dragState.previewElement.style.display = 'none';
@@ -982,6 +994,19 @@ class HighlightManager {
         // Update visual preview
         this.updatePreviewElementPosition(previewRange);
     }
+
+    ensureSectionIds() {
+        const bookContent = document.getElementById('bookContent');
+        if (!bookContent) return;
+        
+        const sections = bookContent.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote, section, article');
+        sections.forEach((section, index) => {
+            if (!section.id) {
+                section.id = 'section_auto_' + this.bookReader.currentPage + '_' + index;
+            }
+        });
+    }
+
 
     commitHighlightResize() {
         if (!this.dragState.currentPreview || !this.dragState.highlightData) return;
@@ -1060,8 +1085,11 @@ class HighlightManager {
                 const node = pos.offsetNode;
                 const section = this.findContainingSection(node);
                 if (section) {
+                    // Make sure section has an ID for future reference
+                    if (!section.id) {
+                        section.id = 'section_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    }
                     const charIndex = this.getCharPositionInSection(section, node, pos.offset);
-                    // Only return if we got a valid index
                     if (charIndex >= 0) {
                         return { node, offset: pos.offset, charIndex, section };
                     }
@@ -1076,8 +1104,11 @@ class HighlightManager {
                 const node = range.startContainer;
                 const section = this.findContainingSection(node);
                 if (section) {
+                    // Make sure section has an ID for future reference
+                    if (!section.id) {
+                        section.id = 'section_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    }
                     const charIndex = this.getCharPositionInSection(section, node, range.startOffset);
-                    // Only return if we got a valid index
                     if (charIndex >= 0) {
                         return { node, offset: range.startOffset, charIndex, section };
                     }
@@ -1150,6 +1181,9 @@ class HighlightManager {
 
     addContentEventListeners() {
         const bookContent = document.getElementById('bookContent');
+        
+        // Ensure all sections have IDs
+        this.ensureSectionIds();
         
         // Remove old listeners to prevent duplicates
         bookContent.removeEventListener('click', this.boundHandleClick);
@@ -1893,8 +1927,19 @@ class HighlightManager {
     findContainingSection(node) {
         let current = node;
         while (current && current !== document.getElementById('bookContent')) {
-            if (current.nodeType === Node.ELEMENT_NODE && current.id) {
-                return current;
+            if (current.nodeType === Node.ELEMENT_NODE) {
+                // Check if it's a block-level element that should be a section
+                if (current.matches && current.matches('p, div, h1, h2, h3, h4, h5, h6, li, blockquote, section, article')) {
+                    // Ensure it has an ID
+                    if (!current.id) {
+                        current.id = 'section_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    }
+                    return current;
+                }
+                // If it already has an ID, use it
+                if (current.id) {
+                    return current;
+                }
             }
             current = current.parentNode;
         }
@@ -2001,13 +2046,41 @@ class HighlightManager {
         const pageHighlights = this.highlights.get(this.bookReader.currentPage);
         if (!pageHighlights || pageHighlights.length === 0) return;
 
+        // First, ensure all potential sections have IDs
+        const bookContent = document.getElementById('bookContent');
+        if (bookContent) {
+            const sections = bookContent.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote, section, article');
+            sections.forEach((section, index) => {
+                if (!section.id) {
+                    section.id = 'section_restored_' + index + '_' + Date.now();
+                }
+            });
+        }
+
         pageHighlights.forEach((highlightData) => {
             if (document.querySelector(`[data-highlight-id="${highlightData.id}"]`)) {
                 return;
             }
 
             try {
-                const section = document.getElementById(highlightData.sectionId);
+                let section = document.getElementById(highlightData.sectionId);
+                
+                // If section not found by ID, try to find it by content matching
+                if (!section && highlightData.text) {
+                    const allSections = bookContent.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote, section, article');
+                    for (let s of allSections) {
+                        if (s.textContent.includes(highlightData.text.substring(0, Math.min(20, highlightData.text.length)))) {
+                            section = s;
+                            // Update the stored section ID
+                            if (!section.id) {
+                                section.id = 'section_recovered_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                            }
+                            highlightData.sectionId = section.id;
+                            break;
+                        }
+                    }
+                }
+                
                 if (!section) {
                     console.warn(`Section ${highlightData.sectionId} not found for highlight ${highlightData.id}`);
                     return;
